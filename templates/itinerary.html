@@ -10,6 +10,7 @@
     <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <style>
         #map {
             position: relative;
@@ -591,20 +592,19 @@ if (localStorage.getItem('darkMode') === 'enabled') {
 // Update the setupLocalTips function to properly get the destination
 function setupLocalTips() {
     try {
-        // Get destination directly from template variable
-        let destination = "{{ itinerary.destination }}".trim().toLowerCase();
+        // Get destination from the first day's title if not available directly
+        let destination = "{{ itinerary.destination if itinerary and itinerary.destination else '' }}".trim().toLowerCase();
         
-        // If empty, try to extract from the first day's title
         if (!destination || destination === 'undefined') {
             const firstDayTitle = document.querySelector('.itinerary-card h2');
             if (firstDayTitle) {
                 const titleText = firstDayTitle.textContent;
-                // Try to extract location from "Day 1: Paris - Exploring the City"
+                // Extract location from "Day 1: Paris - Exploring the City"
                 const match = titleText.match(/Day \d+: (.+?) -/);
-                destination = match ? match[1].trim().toLowerCase() : titleText.replace(/^Day \d+: /, '').trim().toLowerCase();
+                destination = match ? match[1].trim().toLowerCase() : 
+                             titleText.replace(/^Day \d+: /, '').trim().toLowerCase();
             }
         }
-
         // Default values
         let phrases = {
             hello: { phrase: "Hello", pronunciation: "heh-loh" },
@@ -647,14 +647,13 @@ function setupLocalTips() {
             // ... (keep the rest of your location data)
         };
 
-        // Find matching location - now checks each key more thoroughly
         for (const [pattern, data] of Object.entries(locationData)) {
             const patterns = pattern.split('|');
             for (const p of patterns) {
                 if (destination.includes(p)) {
                     phrases = data.phrases;
                     currencyInfo = data.currency;
-                    quickFacts = data.quickFacts;
+                    quickFacts = data.quickFacts || data.quickFacts; // Handle both spellings
                     break;
                 }
             }
@@ -823,213 +822,49 @@ function setupLocalTips() {
     <footer class="footer">
         <p>© 2025 Voyager | Navigating Extraordinary Experiences</p>
     </footer>
-    <script>
-        // Global variables
-        let map;
+<script>
+    // Global variables
+    let map;
     let destination = "{{ itinerary.destination if itinerary and itinerary.destination else '' }}".trim();
     let daysCount = document.querySelectorAll('.itinerary-card').length;
 
-        // Main initialization function
+    // API Configuration
+    const API_CONFIG = {
+        // Use a free geocoding service (Nominatim by OpenStreetMap)
+        GEOCODING_API: 'https://nominatim.openstreetmap.org/search?format=json&q=',
         
-
-        // Show specific day content
-        function showDay(dayNumber) {
-            try {
-                // Hide all itinerary cards
-                document.querySelectorAll('.itinerary-card').forEach(card => {
-                    card.classList.remove('active');
-                });
-                
-                // Show selected day
-                const dayCard = document.getElementById(`day${dayNumber}`);
-                if (dayCard) {
-                    dayCard.classList.add('active');
-                }
-                
-                // Update tab states
-                document.querySelectorAll('.tab').forEach((tab, index) => {
-                    tab.classList.toggle('active', index === dayNumber - 1);
-                });
-            } catch (e) {
-                console.error("Error showing day:", e);
-            }
-        }
-
-       
-// Update the map initialization
-function initMap(destination) {
-    try {
-        map = L.map('map').setView([20, 0], 2);
+        // Weather API (using OpenWeatherMap - you'll need to sign up for a free API key)
+        WEATHER_API: 'https://api.openweathermap.org/data/2.5/weather?units=metric&appid=d6267addacabc1c883c7fc49fec7bd3a&q=',
+        WEATHER_ICON: 'https://openweathermap.org/img/wn/',
         
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        }).addTo(map);
+        // Local AI service (mock endpoint - you'd replace with your actual AI service)
+        AI_SERVICE: 'https://api.gemini.com/v1/local-info?location='
 
-        if (destination) {
-            const coords = getApproximateCoordinates(destination);
-            if (coords) {
-                map.setView(coords, 10);
-                L.marker(coords).addTo(map)
-                    .bindPopup(`<b>${destination}</b><br>Your travel destination`)
-                    .openPopup();
-            }
-        }
-    } catch (e) {
-        console.error("Map initialization error:", e);
-    }
-}
-
-
-        // Setup day tabs navigation
-        function setupDayTabs() {
-            try {
-                const dayTabsContainer = document.getElementById('day-tabs');
-                
-                if (!dayTabsContainer) {
-                    console.warn("Day tabs container not found");
-                    return;
-                }
-                
-                dayTabsContainer.innerHTML = '';
-                
-                for (let i = 1; i <= daysCount; i++) {
-                    const tab = document.createElement('div');
-                    tab.className = 'tab' + (i === 1 ? ' active' : '');
-                    tab.textContent = `Day ${i}`;
-                    tab.onclick = () => showDay(i);
-                    dayTabsContainer.appendChild(tab);
-                }
-            } catch (e) {
-                console.error("Tab setup error:", e);
-            }
-        }
-
-
-function getApproximateCoordinates(destination) {
-    const lowerDest = destination.toLowerCase();
-    const knownLocations = {
-        "paris": [48.8566, 2.3522],
-        "london": [51.5074, -0.1278],
-        "new york": [40.7128, -74.0060],
-        "tokyo": [35.6762, 139.6503],
-        "rome": [41.9028, 12.4964],
-        "barcelona": [41.3851, 2.1734],
-        "berlin": [52.5200, 13.4050],
-        "amsterdam": [52.3676, 4.9041],
-        "dubai": [25.276987, 55.296249],
-        "sydney": [-33.8688, 151.2093],
-        "hong kong": [22.3193, 114.1694],
-        "singapore": [1.3521, 103.8198],
-        "bangkok": [13.7563, 100.5018],
-        "los angeles": [34.0522, -118.2437],
-        "san francisco": [37.7749, -122.4194]
     };
-    
-    for (const [key, coords] of Object.entries(knownLocations)) {
-        if (lowerDest.includes(key)) {
-            return coords;
-        }
-    }
-    return [20, 0]; // Default coordinates if no match
-}
 
-function getWeatherDataForDestination(dest) {
-    const lowerDest = dest.toLowerCase();
-    const now = new Date();
-    const month = now.getMonth() + 1;
-    
-    // Default weather data (fallback)
-    let weatherData = [
-        { name: "Main City", temp: "25°C / 77°F", condition: "Sunny", icon: "sun" },
-        { name: "Coastal Area", temp: "23°C / 73°F", condition: "Partly Cloudy", icon: "cloud-sun" },
-        { name: "Mountain Area", temp: "18°C / 64°F", condition: "Clear", icon: "mountain" }
-    ];
-    
-    // Europe destinations
-    if (lowerDest.includes("paris") || lowerDest.includes("london") || 
-        lowerDest.includes("rome") || lowerDest.includes("berlin") || 
-        lowerDest.includes("amsterdam") || lowerDest.includes("barcelona")) {
-        if (month >= 11 || month <= 3) {
-            // Winter
-            weatherData = [
-                { name: "City Center", temp: "5°C / 41°F", condition: "Cloudy", icon: "cloud" },
-                { name: "Countryside", temp: "3°C / 37°F", condition: "Chilly", icon: "temperature-low" },
-                { name: "Mountains", temp: "-2°C / 28°F", condition: "Snow", icon: "snowflake" }
-            ];
-        } else if (month >= 4 && month <= 6) {
-            // Spring
-            weatherData = [
-                { name: "City Center", temp: "15°C / 59°F", condition: "Partly Cloudy", icon: "cloud-sun" },
-                { name: "Countryside", temp: "13°C / 55°F", condition: "Sunny", icon: "sun" },
-                { name: "Coastal", temp: "16°C / 61°F", condition: "Breezy", icon: "wind" }
-            ];
-        } else {
-            // Summer/Fall
-            weatherData = [
-                { name: "City Center", temp: "22°C / 72°F", condition: "Sunny", icon: "sun" },
-                { name: "Countryside", temp: "20°C / 68°F", condition: "Clear", icon: "sun" },
-                { name: "Mountains", temp: "15°C / 59°F", condition: "Partly Cloudy", icon: "cloud-sun" }
-            ];
-        }
-    }
-            // Asian destinations
-            else if (lowerDest.includes("tokyo") || lowerDest.includes("bangkok") || 
-                     lowerDest.includes("hong kong") || lowerDest.includes("singapore")) {
-                if (month >= 6 && month <= 9) {
-                    // Rainy season
-                    weatherData = [
-                        { name: "City Center", temp: "28°C / 82°F", condition: "Rainy", icon: "cloud-rain" },
-                        { name: "Countryside", temp: "26°C / 79°F", condition: "Humid", icon: "water" },
-                        { name: "Mountains", temp: "22°C / 72°F", condition: "Misty", icon: "smog" }
-                    ];
-                } else {
-                    // Dry season
-                    weatherData = [
-                        { name: "City Center", temp: "22°C / 72°F", condition: "Sunny", icon: "sun" },
-                        { name: "Countryside", temp: "20°C / 68°F", condition: "Clear", icon: "sun" },
-                        { name: "Coastal", temp: "24°C / 75°F", condition: "Breezy", icon: "wind" }
-                    ];
-                }
-            }
-            // Middle East destinations
-            else if (lowerDest.includes("dubai")) {
-                if (month >= 5 && month <= 9) {
-                    // Hot season
-                    weatherData = [
-                        { name: "City Center", temp: "38°C / 100°F", condition: "Sunny", icon: "sun" },
-                        { name: "Desert", temp: "42°C / 108°F", condition: "Hot", icon: "temperature-high" },
-                        { name: "Coastal", temp: "35°C / 95°F", condition: "Humid", icon: "water" }
-                    ];
-                } else {
-                    // Mild season
-                    weatherData = [
-                        { name: "City Center", temp: "25°C / 77°F", condition: "Sunny", icon: "sun" },
-                        { name: "Desert", temp: "22°C / 72°F", condition: "Clear", icon: "sun" },
-                        { name: "Mountains", temp: "18°C / 64°F", condition: "Cool", icon: "temperature-low" }
-                    ];
-                }
-            }
-            
-            return weatherData;
-        }
-
-// Main initialization function
-function initializePage() {
+    // Main initialization function
+    function initializePage() {
     try {
-        // Get destination from template variable
-        const destination = "{{ itinerary.destination }}".trim();
+        // Get destination from template variable or extract from day title
+        let destination = "{{ itinerary.destination if itinerary and itinerary.destination else '' }}".trim();
         
-        // Initialize map with destination
-        initMap(destination);
+        if (!destination || destination === 'undefined') {
+            const firstDayTitle = document.querySelector('.itinerary-card h2');
+            if (firstDayTitle) {
+                const titleText = firstDayTitle.textContent;
+                const match = titleText.match(/Day \d+: (.+?) -/);
+                destination = match ? match[1].trim() : 
+                             titleText.replace(/^Day \d+: /, '').trim();
+            }
+        }
+ initMap(destination);
         
         // Setup tabs
         setupDayTabs();
         
         // Setup weather with destination
         setupWeatherWidget(destination);
-        
-        // Setup local tips with destination
-        setupLocalTips(destination);
+        setupLocalTips();
         
         // Show first day
         if (daysCount > 0) showDay(1);
@@ -1038,31 +873,80 @@ function initializePage() {
     }
 }
 
-// Update the map initialization
-function initMap(destination) {
-    try {
+
+
+
+    // Fallback when APIs fail
+    function fallbackToStaticContent() {
+        console.log("Falling back to static content");
+        initMapWithFallback(destination);
+        setupWeatherWidgetWithFallback(destination);
+        setupLocalTipsWithFallback(destination);
+    }
+
+    // Initialize map with API-based geocoding
+    async function initMap(dest) {
+        try {
+            if (!dest) {
+                console.warn("No destination provided for map");
+                return initMapWithFallback();
+            }
+            
+            // First try to get coordinates from API
+            const coords = await getCoordinatesFromAPI(dest);
+            
+            // Initialize the map
+            map = L.map('map').setView(coords || [20, 0], coords ? 10 : 2);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+
+            if (coords) {
+                L.marker(coords).addTo(map)
+                    .bindPopup(`<b>${dest}</b><br>Your travel destination`)
+                    .openPopup();
+            }
+        } catch (e) {
+            console.error("Map initialization error:", e);
+            initMapWithFallback(dest);
+        }
+    }
+
+    // Fallback map initialization
+    function initMapWithFallback(dest) {
         map = L.map('map').setView([20, 0], 2);
-        
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         }).addTo(map);
 
-        if (destination) {
-            const coords = getApproximateCoordinates(destination);
+        if (dest) {
+            const coords = getApproximateCoordinates(dest);
             if (coords) {
                 map.setView(coords, 10);
                 L.marker(coords).addTo(map)
-                    .bindPopup(`<b>${destination}</b><br>Your travel destination`)
+                    .bindPopup(`<b>${dest}</b><br>Your travel destination`)
                     .openPopup();
             }
         }
-    } catch (e) {
-        console.error("Map initialization error:", e);
     }
-}
 
-// Setup weather widget with dynamic data
-function setupWeatherWidget(destination) {
+    // Get coordinates from geocoding API
+    async function getCoordinatesFromAPI(dest) {
+        try {
+            const response = await axios.get(`${API_CONFIG.GEOCODING_API}${encodeURIComponent(dest)}`);
+            if (response.data && response.data.length > 0) {
+                return [parseFloat(response.data[0].lat), parseFloat(response.data[0].lon)];
+            }
+            return null;
+        } catch (e) {
+            console.error("Geocoding API error:", e);
+            return null;
+        }
+    }
+
+    // Setup weather widget with API data
+    function setupWeatherWidget(destination) {
     try {
         const weatherCities = document.getElementById('weather-cities');
         if (!weatherCities) return;
@@ -1070,9 +954,9 @@ function setupWeatherWidget(destination) {
         const weatherData = getWeatherDataForDestination(destination);
         weatherCities.innerHTML = weatherData.map(city => `
             <div class="weather-city">
-                <i class="fas fa-${city.icon}"></i>
+                <i class="fas fa-${getWeatherIconClass(city.icon)}"></i>
                 <h4>${city.name}</h4>
-                <p>${city.temp}°C</p>
+                <p>${city.temp}</p>
                 <p>${city.condition}</p>
             </div>
         `).join('');
@@ -1081,11 +965,171 @@ function setupWeatherWidget(destination) {
     }
 }
 
-// Setup all local tips (currency, phrases, quick facts)
-function setupLocalTips(destination) {
-    try {
-        // Clean the destination (trim and lowercase)
-        destination = (destination || "").trim().toLowerCase();
+function getWeatherIconClass(iconName) {
+    const iconMap = {
+        'sun': 'sun',
+        'cloud': 'cloud',
+        'cloud-sun': 'cloud-sun',
+        'temperature-low': 'temperature-low',
+        'temperature-high': 'temperature-high',
+        'cloud-rain': 'cloud-rain',
+        'water': 'tint',
+        'smog': 'smog',
+        'wind': 'wind',
+        'snowflake': 'snowflake',
+        'mountain': 'mountain'
+    };
+    return iconMap[iconName] || 'sun';
+}
+
+
+    // Get weather data from API
+    async function getWeatherDataFromAPI(dest) {
+        try {
+            const response = await axios.get(`${API_CONFIG.WEATHER_API}${encodeURIComponent(dest)}`);
+            if (response.data) {
+                return {
+                    temp: `${Math.round(response.data.main.temp)}°C / ${Math.round(response.data.main.temp * 9/5 + 32)}°F`,
+                    condition: response.data.weather[0].description,
+                    icon: response.data.weather[0].icon,
+                    humidity: response.data.main.humidity,
+                    wind: response.data.wind.speed
+                };
+            }
+            return null;
+        } catch (e) {
+            console.error("Weather API error:", e);
+            return null;
+        }
+    }
+
+    // Update weather UI with API data
+    function updateWeatherUI(data) {
+        const weatherCities = document.getElementById('weather-cities');
+        if (!weatherCities) return;
+        
+        weatherCities.innerHTML = `
+            <div class="weather-city">
+                <img src="${API_CONFIG.WEATHER_ICON}${data.icon}.png" alt="${data.condition}">
+                <h4>Current Weather</h4>
+                <p>${data.temp}</p>
+                <p>${data.condition}</p>
+                <p>Humidity: ${data.humidity}%</p>
+                <p>Wind: ${data.wind} m/s</p>
+            </div>
+        `;
+    }
+
+    // Fallback weather data
+    function setupWeatherWidgetWithFallback(dest) {
+        const weatherData = getWeatherDataForDestination(dest);
+        const weatherCities = document.getElementById('weather-cities');
+        
+        if (weatherCities) {
+            weatherCities.innerHTML = weatherData.map(city => `
+                <div class="weather-city">
+                    <i class="fas fa-${city.icon}"></i>
+                    <h4>${city.name}</h4>
+                    <p>${city.temp}</p>
+                    <p>${city.condition}</p>
+                </div>
+            `).join('');
+        }
+    }
+
+
+    // Mock AI service call - replace with your actual AI integration
+    async function getLocalInfoFromAI(dest) {
+        try {
+            // This is a mock - in reality you'd call your AI service
+            // const response = await axios.get(`${API_CONFIG.AI_SERVICE}${encodeURIComponent(dest)}`);
+            // return response.data;
+            
+            // For demo purposes, we'll simulate an AI response
+            return simulateAIResponse(dest);
+        } catch (e) {
+            console.error("AI service error:", e);
+            return null;
+        }
+    }
+
+    // Simulate AI response - replace with real API call
+    function simulateAIResponse(dest) {
+        // This is just for demonstration - in a real app you'd use an actual AI service
+        const lowerDest = dest.toLowerCase();
+        const now = new Date();
+        
+        // Simulate some basic "AI-like" responses based on destination
+        if (lowerDest.includes("paris") || lowerDest.includes("france")) {
+            return {
+                phrases: {
+                    hello: { phrase: "Bonjour", pronunciation: "bohn-zhoor" },
+                    thanks: { phrase: "Merci", pronunciation: "mehr-see" },
+                    price: { phrase: "Combien?", pronunciation: "kohm-byen" }
+                },
+                currency: "Euro (€) - Current rate: 1 EUR ≈ ${(Math.random() * 0.1 + 1.05).toFixed(2)} USD",
+                quickFacts: `Paris is beautiful in ${getSeason(now)}. Did you know there's only one stop sign in the entire city? The Eiffel Tower grows about 6 inches in summer due to thermal expansion.`
+            };
+        } else if (lowerDest.includes("tokyo") || lowerDest.includes("japan")) {
+            return {
+                phrases: {
+                    hello: { phrase: "こんにちは", pronunciation: "kon-ni-chi-wa" },
+                    thanks: { phrase: "ありがとう", pronunciation: "a-ri-ga-toh" },
+                    price: { phrase: "いくらですか？", pronunciation: "ee-koo-rah des-ka" }
+                },
+                currency: "Yen (¥) - Current rate: 1 JPY ≈ ${(Math.random() * 0.001 + 0.0065).toFixed(4)} USD",
+                quickFacts: `Tokyo is vibrant in ${getSeason(now)}. Fun fact: There are more than 5 million vending machines in Japan. Try the seasonal ${getSeasonalFood(now)} while you're there!`
+            };
+        } else {
+            // Generic response for unknown destinations
+            return {
+                phrases: {
+                    hello: { phrase: "Hello", pronunciation: "heh-loh" },
+                    thanks: { phrase: "Thank you", pronunciation: "thank yoo" },
+                    price: { phrase: "How much?", pronunciation: "how much" }
+                },
+                currency: "Local currency - check exchange rates",
+                quickFacts: `${dest} is wonderful in ${getSeason(now)}. Be sure to try local specialties and explore hidden gems off the main tourist paths!`
+            };
+        }
+    }
+
+    // Helper function to get current season
+    function getSeason(date) {
+        const month = date.getMonth() + 1;
+        if (month >= 3 && month <= 5) return "spring";
+        if (month >= 6 && month <= 8) return "summer";
+        if (month >= 9 && month <= 11) return "autumn";
+        return "winter";
+    }
+
+    // Helper function for seasonal food suggestions
+    function getSeasonalFood(date) {
+        const season = getSeason(date);
+        const foods = {
+            spring: ["cherry blossoms treats", "fresh spring vegetables", "seasonal seafood"],
+            summer: ["chilled noodles", "shaved ice desserts", "fresh fruit"],
+            autumn: ["mushroom dishes", "sweet potatoes", "persimmons"],
+            winter: ["hot pot dishes", "warm sake", "winter citrus fruits"]
+        };
+        return foods[season][Math.floor(Math.random() * foods[season].length)];
+    }
+
+    // Update local tips UI with AI data
+    function updateLocalTipsUI(data) {
+        document.getElementById('hello-phrase').textContent = data.phrases.hello.phrase;
+        document.getElementById('hello-pronunciation').textContent = data.phrases.hello.pronunciation;
+        document.getElementById('thanks-phrase').textContent = data.phrases.thanks.phrase;
+        document.getElementById('thanks-pronunciation').textContent = data.phrases.thanks.pronunciation;
+        document.getElementById('price-phrase').textContent = data.phrases.price.phrase;
+        document.getElementById('price-pronunciation').textContent = data.phrases.price.pronunciation;
+        document.getElementById('currency-info').textContent = data.currency;
+        document.getElementById('quick-facts').textContent = data.quickFacts;
+    }
+
+    // Fallback local tips
+    function setupLocalTipsWithFallback(dest) {
+        const lowerDest = (dest || "").trim().toLowerCase();
         
         // Default values
         let phrases = {
@@ -1094,90 +1138,14 @@ function setupLocalTips(destination) {
             price: { phrase: "How much?", pronunciation: "how much" }
         };
         
-        let currencyInfo = "Local currency information not specified";
-        let quickFacts = "Interesting facts about your destination will appear here";
+        let currencyInfo = "Local currency - check exchange rates";
+        let quickFacts = `Interesting facts about ${dest || 'your destination'} will appear here`;
         
-        // Enhanced location data matching
-        const locationData = {
-            'paris|france': {
-                phrases: {
-                    hello: { phrase: "Bonjour", pronunciation: "bohn-zhoor" },
-                    thanks: { phrase: "Merci", pronunciation: "mehr-see" },
-                    price: { phrase: "Combien?", pronunciation: "kohm-byen" }
-                },
-                currency: "Euro (€) - 1 EUR ≈ 1.07 USD",
-                quickFacts: "France is the most visited country in the world. The French consume around 25,000 tons of snails each year. Paris has only one stop sign in the entire city."
-            },
-            'barcelona|madrid|spain': {
-                phrases: {
-                    hello: { phrase: "Hola", pronunciation: "oh-la" },
-                    thanks: { phrase: "Gracias", pronunciation: "grah-see-ahs" },
-                    price: { phrase: "¿Cuánto cuesta?", pronunciation: "kwahn-toh kwehs-tah" }
-                },
-                currency: "Euro (€) - 1 EUR ≈ 1.07 USD",
-                quickFacts: "Spain has the third highest number of UNESCO World Heritage Sites. The Spanish national anthem has no words. Spain has over 8,000 km of beaches."
-            },
-            'tokyo|kyoto|japan': {
-                phrases: {
-                    hello: { phrase: "こんにちは", pronunciation: "kon-ni-chi-wa" },
-                    thanks: { phrase: "ありがとう", pronunciation: "a-ri-ga-toh" },
-                    price: { phrase: "いくらですか？", pronunciation: "ee-koo-rah des-ka" }
-                },
-                currency: "Yen (¥) - 1 JPY ≈ 0.007 USD",
-                quickFacts: "Japan has more than 5 million vending machines. The world's oldest company (578 AD) is in Japan. Many Japanese trains are among the most punctual in the world, with average delays of just 18 seconds."
-            },
-            'new york|usa|united states': {
-                phrases: {
-                    hello: { phrase: "Hello", pronunciation: "heh-loh" },
-                    thanks: { phrase: "Thank you", pronunciation: "thank yoo" },
-                    price: { phrase: "How much?", pronunciation: "how much" }
-                },
-                currency: "US Dollar ($) - 1 USD ≈ 0.93 EUR",
-                quickFacts: "New York City has the largest subway system in the world. There's a secret train platform under the Waldorf Astoria hotel. More than 800 languages are spoken in NYC, making it the most linguistically diverse city in the world."
-            },
-            'london|uk|united kingdom': {
-                phrases: {
-                    hello: { phrase: "Hello", pronunciation: "heh-loh" },
-                    thanks: { phrase: "Thank you", pronunciation: "thank yoo" },
-                    price: { phrase: "How much?", pronunciation: "how much" }
-                },
-                currency: "British Pound (£) - 1 GBP ≈ 1.27 USD",
-                quickFacts: "London has over 170 museums. The London Underground is the oldest underground railway network in the world. Big Ben is actually the name of the bell, not the clock tower."
-            },
-            'rome|italy': {
-                phrases: {
-                    hello: { phrase: "Ciao", pronunciation: "chow" },
-                    thanks: { phrase: "Grazie", pronunciation: "grah-tsee-eh" },
-                    price: { phrase: "Quanto costa?", pronunciation: "kwahn-toh koh-stah" }
-                },
-                currency: "Euro (€) - 1 EUR ≈ 1.07 USD",
-                quickFacts: "Rome has more fountains than any other city in the world. The Colosseum could hold between 50,000 and 80,000 spectators. In Rome, it's illegal to sit on the Spanish Steps while eating."
-            },
-            'dubai|uae': {
-                phrases: {
-                    hello: { phrase: "Marhaba", pronunciation: "mar-ha-ba" },
-                    thanks: { phrase: "Shukran", pronunciation: "shook-ran" },
-                    price: { phrase: "Bikam?", pronunciation: "bee-kam" }
-                },
-                currency: "UAE Dirham (AED) - 1 AED ≈ 0.27 USD",
-                quickFacts: "Dubai has the world's tallest building (Burj Khalifa). The police force has a fleet of supercars. The city has an indoor ski resort in the middle of the desert."
-            },
-            'bangkok|thailand': {
-                phrases: {
-                    hello: { phrase: "Sawasdee", pronunciation: "sa-was-dee" },
-                    thanks: { phrase: "Khop khun", pronunciation: "kop koon" },
-                    price: { phrase: "Tao rai?", pronunciation: "tao rye" }
-                },
-                currency: "Thai Baht (฿) - 1 THB ≈ 0.028 USD",
-                quickFacts: "Bangkok's full name is the longest city name in the world. The city has over 400 temples. It's home to the world's largest golden Buddha statue."
-            }
-        };
-
         // Find matching location
         for (const [pattern, data] of Object.entries(locationData)) {
             const patterns = pattern.split('|');
             for (const p of patterns) {
-                if (destination.includes(p)) {
+                if (lowerDest.includes(p)) {
                     phrases = data.phrases;
                     currencyInfo = data.currency;
                     quickFacts = data.quickFacts;
@@ -1195,12 +1163,269 @@ function setupLocalTips(destination) {
         document.getElementById('price-pronunciation').textContent = phrases.price.pronunciation;
         document.getElementById('currency-info').textContent = currencyInfo;
         document.getElementById('quick-facts').textContent = quickFacts;
-    } catch (e) {
-        console.error("Local tips error:", e);
     }
-}
-        // Initialize everything when page loads
-        document.addEventListener('DOMContentLoaded', initializePage);
-    </script>
+
+    // Show specific day content
+    function showDay(dayNumber) {
+        try {
+            // Hide all itinerary cards
+            document.querySelectorAll('.itinerary-card').forEach(card => {
+                card.classList.remove('active');
+            });
+            
+            // Show selected day
+            const dayCard = document.getElementById(`day${dayNumber}`);
+            if (dayCard) {
+                dayCard.classList.add('active');
+            }
+            
+            // Update tab states
+            document.querySelectorAll('.tab').forEach((tab, index) => {
+                tab.classList.toggle('active', index === dayNumber - 1);
+            });
+        } catch (e) {
+            console.error("Error showing day:", e);
+        }
+    }
+
+    // Setup day tabs navigation
+    function setupDayTabs() {
+        try {
+            const dayTabsContainer = document.getElementById('day-tabs');
+            
+            if (!dayTabsContainer) {
+                console.warn("Day tabs container not found");
+                return;
+            }
+            
+            dayTabsContainer.innerHTML = '';
+            
+            for (let i = 1; i <= daysCount; i++) {
+                const tab = document.createElement('div');
+                tab.className = 'tab' + (i === 1 ? ' active' : '');
+                tab.textContent = `Day ${i}`;
+                tab.onclick = () => showDay(i);
+                dayTabsContainer.appendChild(tab);
+            }
+        } catch (e) {
+            console.error("Tab setup error:", e);
+        }
+    }
+
+    // Get approximate coordinates (fallback)
+    function getApproximateCoordinates(destination) {
+        const lowerDest = destination.toLowerCase();
+        const knownLocations = {
+            "paris": [48.8566, 2.3522],
+            "london": [51.5074, -0.1278],
+            "new york": [40.7128, -74.0060],
+            "tokyo": [35.6762, 139.6503],
+            "rome": [41.9028, 12.4964],
+            "barcelona": [41.3851, 2.1734],
+            "berlin": [52.5200, 13.4050],
+            "amsterdam": [52.3676, 4.9041],
+            "dubai": [25.276987, 55.296249],
+            "sydney": [-33.8688, 151.2093],
+            "hong kong": [22.3193, 114.1694],
+            "singapore": [1.3521, 103.8198],
+            "bangkok": [13.7563, 100.5018],
+            "los angeles": [34.0522, -118.2437],
+            "san francisco": [37.7749, -122.4194]
+        };
+        
+        for (const [key, coords] of Object.entries(knownLocations)) {
+            if (lowerDest.includes(key)) {
+                return coords;
+            }
+        }
+        return [20, 0]; // Default coordinates if no match
+    }
+
+    // Get weather data for destination (fallback)
+    function getWeatherDataForDestination(dest) {
+        const lowerDest = dest.toLowerCase();
+        const now = new Date();
+        const month = now.getMonth() + 1;
+        
+        // Default weather data (fallback)
+        let weatherData = [
+            { name: "Main City", temp: "25°C / 77°F", condition: "Sunny", icon: "sun" },
+            { name: "Coastal Area", temp: "23°C / 73°F", condition: "Partly Cloudy", icon: "cloud-sun" },
+            { name: "Mountain Area", temp: "18°C / 64°F", condition: "Clear", icon: "mountain" }
+        ];
+        
+        // Europe destinations
+        if (lowerDest.includes("paris") || lowerDest.includes("london") || 
+            lowerDest.includes("rome") || lowerDest.includes("berlin") || 
+            lowerDest.includes("amsterdam") || lowerDest.includes("barcelona")) {
+            if (month >= 11 || month <= 3) {
+                // Winter
+                weatherData = [
+                    { name: "City Center", temp: "5°C / 41°F", condition: "Cloudy", icon: "cloud" },
+                    { name: "Countryside", temp: "3°C / 37°F", condition: "Chilly", icon: "temperature-low" },
+                    { name: "Mountains", temp: "-2°C / 28°F", condition: "Snow", icon: "snowflake" }
+                ];
+            } else if (month >= 4 && month <= 6) {
+                // Spring
+                weatherData = [
+                    { name: "City Center", temp: "15°C / 59°F", condition: "Partly Cloudy", icon: "cloud-sun" },
+                    { name: "Countryside", temp: "13°C / 55°F", condition: "Sunny", icon: "sun" },
+                    { name: "Coastal", temp: "16°C / 61°F", condition: "Breezy", icon: "wind" }
+                ];
+            } else {
+                // Summer/Fall
+                weatherData = [
+                    { name: "City Center", temp: "22°C / 72°F", condition: "Sunny", icon: "sun" },
+                    { name: "Countryside", temp: "20°C / 68°F", condition: "Clear", icon: "sun" },
+                    { name: "Mountains", temp: "15°C / 59°F", condition: "Partly Cloudy", icon: "cloud-sun" }
+                ];
+            }
+        }
+        // Asian destinations
+        else if (lowerDest.includes("tokyo") || lowerDest.includes("bangkok") || 
+                 lowerDest.includes("hong kong") || lowerDest.includes("singapore")) {
+            if (month >= 6 && month <= 9) {
+                // Rainy season
+                weatherData = [
+                    { name: "City Center", temp: "28°C / 82°F", condition: "Rainy", icon: "cloud-rain" },
+                    { name: "Countryside", temp: "26°C / 79°F", condition: "Humid", icon: "water" },
+                    { name: "Mountains", temp: "22°C / 72°F", condition: "Misty", icon: "smog" }
+                ];
+            } else {
+                // Dry season
+                weatherData = [
+                    { name: "City Center", temp: "22°C / 72°F", condition: "Sunny", icon: "sun" },
+                    { name: "Countryside", temp: "20°C / 68°F", condition: "Clear", icon: "sun" },
+                    { name: "Coastal", temp: "24°C / 75°F", condition: "Breezy", icon: "wind" }
+                ];
+            }
+        }
+        // Middle East destinations
+        else if (lowerDest.includes("dubai")) {
+            if (month >= 5 && month <= 9) {
+                // Hot season
+                weatherData = [
+                    { name: "City Center", temp: "38°C / 100°F", condition: "Sunny", icon: "sun" },
+                    { name: "Desert", temp: "42°C / 108°F", condition: "Hot", icon: "temperature-high" },
+                    { name: "Coastal", temp: "35°C / 95°F", condition: "Humid", icon: "water" }
+                ];
+            } else {
+                // Mild season
+                weatherData = [
+                    { name: "City Center", temp: "25°C / 77°F", condition: "Sunny", icon: "sun" },
+                    { name: "Desert", temp: "22°C / 72°F", condition: "Clear", icon: "sun" },
+                    { name: "Mountains", temp: "18°C / 64°F", condition: "Cool", icon: "temperature-low" }
+                ];
+            }
+        }
+        
+        return weatherData;
+    }
+
+    // Location data for fallback
+    const locationData = {
+        'paris|france': {
+            phrases: {
+                hello: { phrase: "Bonjour", pronunciation: "bohn-zhoor" },
+                thanks: { phrase: "Merci", pronunciation: "mehr-see" },
+                price: { phrase: "Combien?", pronunciation: "kohm-byen" }
+            },
+            currency: "Euro (€) - 1 EUR ≈ 1.07 USD",
+            quickFacts: "France is the most visited country in the world. The French consume around 25,000 tons of snails each year. Paris has only one stop sign in the entire city."
+        },
+        'barcelona|madrid|spain': {
+            phrases: {
+                hello: { phrase: "Hola", pronunciation: "oh-la" },
+                thanks: { phrase: "Gracias", pronunciation: "grah-see-ahs" },
+                price: { phrase: "¿Cuánto cuesta?", pronunciation: "kwahn-toh kwehs-tah" }
+            },
+            currency: "Euro (€) - 1 EUR ≈ 1.07 USD",
+            quickFacts: "Spain has the third highest number of UNESCO World Heritage Sites. The Spanish national anthem has no words. Spain has over 8,000 km of beaches."
+        },
+        'tokyo|kyoto|japan': {
+            phrases: {
+                hello: { phrase: "こんにちは", pronunciation: "kon-ni-chi-wa" },
+                thanks: { phrase: "ありがとう", pronunciation: "a-ri-ga-toh" },
+                price: { phrase: "いくらですか？", pronunciation: "ee-koo-rah des-ka" }
+            },
+            currency: "Yen (¥) - 1 JPY ≈ 0.007 USD",
+            quickFacts: "Japan has more than 5 million vending machines. The world's oldest company (578 AD) is in Japan. Many Japanese trains are among the most punctual in the world, with average delays of just 18 seconds."
+        },
+        'new york|usa|united states': {
+            phrases: {
+                hello: { phrase: "Hello", pronunciation: "heh-loh" },
+                thanks: { phrase: "Thank you", pronunciation: "thank yoo" },
+                price: { phrase: "How much?", pronunciation: "how much" }
+            },
+            currency: "US Dollar ($) - 1 USD ≈ 0.93 EUR",
+            quickFacts: "New York City has the largest subway system in the world. There's a secret train platform under the Waldorf Astoria hotel. More than 800 languages are spoken in NYC, making it the most linguistically diverse city in the world."
+        },
+        'london|uk|united kingdom': {
+            phrases: {
+                hello: { phrase: "Hello", pronunciation: "heh-loh" },
+                thanks: { phrase: "Thank you", pronunciation: "thank yoo" },
+                price: { phrase: "How much?", pronunciation: "how much" }
+            },
+            currency: "British Pound (£) - 1 GBP ≈ 1.27 USD",
+            quickFacts: "London has over 170 museums. The London Underground is the oldest underground railway network in the world. Big Ben is actually the name of the bell, not the clock tower."
+        },
+        'rome|italy': {
+            phrases: {
+                hello: { phrase: "Ciao", pronunciation: "chow" },
+                thanks: { phrase: "Grazie", pronunciation: "grah-tsee-eh" },
+                price: { phrase: "Quanto costa?", pronunciation: "kwahn-toh koh-stah" }
+            },
+            currency: "Euro (€) - 1 EUR ≈ 1.07 USD",
+            quickFacts: "Rome has more fountains than any other city in the world. The Colosseum could hold between 50,000 and 80,000 spectators. In Rome, it's illegal to sit on the Spanish Steps while eating."
+        },
+        'dubai|uae': {
+            phrases: {
+                hello: { phrase: "Marhaba", pronunciation: "mar-ha-ba" },
+                thanks: { phrase: "Shukran", pronunciation: "shook-ran" },
+                price: { phrase: "Bikam?", pronunciation: "bee-kam" }
+            },
+            currency: "UAE Dirham (AED) - 1 AED ≈ 0.27 USD",
+            quickFacts: "Dubai has the world's tallest building (Burj Khalifa). The police force has a fleet of supercars. The city has an indoor ski resort in the middle of the desert."
+        },
+        'bangkok|thailand': {
+            phrases: {
+                hello: { phrase: "Sawasdee", pronunciation: "sa-was-dee" },
+                thanks: { phrase: "Khop khun", pronunciation: "kop koon" },
+                price: { phrase: "Tao rai?", pronunciation: "tao rye" }
+            },
+            currency: "Thai Baht (฿) - 1 THB ≈ 0.028 USD",
+            quickFacts: "Bangkok's full name is the longest city name in the world. The city has over 400 temples. It's home to the world's largest golden Buddha statue."
+        }
+    };
+
+    // Dark Mode Toggle
+    document.getElementById('dark-mode-toggle').addEventListener('click', function() {
+        document.body.classList.toggle('dark-mode');
+        const icon = this.querySelector('i');
+        if (document.body.classList.contains('dark-mode')) {
+            icon.classList.remove('fa-moon');
+            icon.classList.add('fa-sun');
+            this.title = "Toggle Light Mode";
+            localStorage.setItem('darkMode', 'enabled');
+        } else {
+            icon.classList.remove('fa-sun');
+            icon.classList.add('fa-moon');
+            this.title = "Toggle Dark Mode";
+            localStorage.setItem('darkMode', 'disabled');
+        }
+    });
+
+    // Check for saved dark mode preference
+    if (localStorage.getItem('darkMode') === 'enabled') {
+        document.body.classList.add('dark-mode');
+        const toggle = document.getElementById('dark-mode-toggle');
+        toggle.querySelector('i').classList.remove('fa-moon');
+        toggle.querySelector('i').classList.add('fa-sun');
+        toggle.title = "Toggle Light Mode";
+    }
+
+    // Initialize everything when page loads
+    document.addEventListener('DOMContentLoaded', initializePage);
+</script>
 </body>
 </html>
