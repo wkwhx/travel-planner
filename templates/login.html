@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voyager | Authentication</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+</head>
+<body>
+    <div class="container">
+        <div class="floating-decoration dec-1"></div>
+        <div class="floating-decoration dec-2"></div>
+        
+        <div class="logo">VOYAGER</div>
+        <h2 id="form-title">Welcome Back</h2>
+        <!-- Add this right after the <h2> tag in login.html -->
+            <div class="alerts-container">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert {{ category }}">
+                                <i class="fas {% if category == 'error' %}fa-exclamation-circle{% else %}fa-check-circle{% endif %}"></i>
+                                <span>{{ message }}</span>
+                                <span class="close-btn">&times;</span>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+            </div>
+        
+        <div id="login-fields">
+            <form method="POST" action="{{ url_for('login') }}">
+                <div class="input-group">
+                    <i class="fas fa-user"></i>
+                    <input type="text" name="username" placeholder="Username or Email" required>
+                </div>
+                <div class="input-group">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" name="password" placeholder="Password" required>
+                </div>
+                <div class="remember-me">
+                    <input type="checkbox" id="remember_me" name="remember_me">
+                    <label for="remember_me">Remember me</label>
+                </div>
+                <button type="submit" class="btn">Sign In</button>
+            </form>
+
+            <div class="divider">or continue with</div>
+            
+            <div class="social-login">
+                <div class="social-btn google" onclick="window.location.href='https://g.co/kgs/6wb6H5L'">
+                    <i class="fab fa-google"></i>
+                </div>
+                <div class="social-btn facebook" onclick="window.location.href='https://www.facebook.com/'">
+                    <i class="fab fa-facebook-f"></i>
+                </div>
+            </div>
+        </div>
+        
+        <div id="signup-fields" class="signup-fields">
+            <form method="POST" action="{{ url_for('signup') }}">
+                <div class="input-group">
+                    <i class="fas fa-envelope"></i>
+                    <input type="email" name="email" placeholder="Email Address" required>
+                </div>
+                <div class="input-group">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" name="signup-password" placeholder="Create Password" required>
+                </div>
+                <div class="input-group">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" name="confirm-password" placeholder="Confirm Password" required>
+                </div>
+                <button type="submit" class="btn">Create Account</button>
+            </form>
+        </div>
+        
+        <p class="toggle" onclick="toggleForm()">
+            <span id="toggle-text">Don't have an account? Sign up</span>
+        </p>
+    </div>
+
+    <script>
+        let isLogin = true;
+        
+        function toggleForm() {
+            isLogin = !isLogin;
+            const container = document.querySelector('.container');
+            
+            // Add animation class
+            container.style.animation = 'none';
+            container.offsetHeight; // Trigger reflow
+            container.style.animation = 'fadeInUp 0.6s ease-out forwards';
+            
+            // Update content
+            document.getElementById("form-title").innerText = isLogin ? "Welcome Back" : "Create Account";
+            document.getElementById("toggle-text").innerText = isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in";
+            document.getElementById("login-fields").style.display = isLogin ? "block" : "none";
+            document.getElementById("signup-fields").style.display = isLogin ? "none" : "block";
+        }
+        
+        // Add focus effects
+        const inputs = document.querySelectorAll('input');
+        inputs.forEach(input => {
+            input.addEventListener('focus', function() {
+                this.parentElement.querySelector('i').style.color = 'var(--primary-dark)';
+            });
+            input.addEventListener('blur', function() {
+                this.parentElement.querySelector('i').style.color = 'var(--primary)';
+            });
+        });
+
+        // Replace your existing alert JavaScript with this:
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle auto-dismiss and close button
+    const alerts = document.querySelectorAll('.alert');
+    
+    alerts.forEach(alert => {
+        // Add close button functionality
+        const closeBtn = alert.querySelector('.close-btn');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                alert.style.animation = 'slideOut 0.3s forwards';
+                setTimeout(() => alert.remove(), 300);
+            });
+        }
+        
+        // Auto-dismiss after 5 seconds
+        setTimeout(() => {
+            alert.style.animation = 'slideOut 0.3s forwards';
+            setTimeout(() => alert.remove(), 300);
+        }, 5000);
+    });
+
+    // Prevent form submission if fields are invalid (client-side validation)
+    document.querySelectorAll('form').forEach(form => {
+        form.addEventListener('submit', function(e) {
+            // Clear existing alerts
+            document.querySelectorAll('.alert').forEach(alert => alert.remove());
+            
+            // Add simple client-side validation
+            const inputs = this.querySelectorAll('input[required]');
+            let isValid = true;
+            
+            inputs.forEach(input => {
+                if (!input.value.trim()) {
+                    isValid = false;
+                    input.style.borderColor = 'var(--error)';
+                    setTimeout(() => {
+                        input.style.borderColor = 'rgba(156, 107, 77, 0.3)';
+                    }, 2000);
+                }
+            });
+            
+            if (!isValid) {
+                e.preventDefault();
+                showAlert('Please fill in all required fields', 'error');
+            }
+        });
+    });
+});
+
+// Function to dynamically show alerts (for client-side validation)
+function showAlert(message, type) {
+    const container = document.querySelector('.alerts-container');
+    const alert = document.createElement('div');
+    alert.className = `alert ${type}`;
+    alert.innerHTML = `
+        <i class="fas ${type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle'}"></i>
+        <span>${message}</span>
+        <span class="close-btn">&times;</span>
+    `;
+    
+    container.appendChild(alert);
+    
+    // Add close button functionality
+    alert.querySelector('.close-btn').addEventListener('click', () => {
+        alert.style.animation = 'slideOut 0.3s forwards';
+        setTimeout(() => alert.remove(), 300);
+    });
+    
+    // Auto-dismiss
+    setTimeout(() => {
+        alert.style.animation = 'slideOut 0.3s forwards';
+        setTimeout(() => alert.remove(), 300);
+    }, 5000);
+}
+    </script>
+</body>
+</html>

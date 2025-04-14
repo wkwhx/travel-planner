@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuestLog - Gamified Travel Bucket List</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <!-- Leaflet CSS for map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        :root {
+            --primary: #a0604d; /* Terracotta */
+            --primary-light: #c97e6d;
+            --primary-lighter: #e8b4a8;
+            --primary-dark: #7a4a3a;
+            --secondary: #FFFFFF;
+            --text: #333333;
+            --text-light: #666666;
+            --text-lighter: #999999;
+            --background: #f8f1ee;
+            --card-bg: #FFFFFF;
+            --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            --shadow-hover: 0 8px 24px rgba(0, 0, 0, 0.12);
+            --success: #5cb85c;
+            --warning: #f0ad4e;
+            --danger: #d9534f;
+            --info: #5bc0de;
+            --pastel-blue: #a7c7e7;
+            --pastel-green: #c1e1c1;
+            --pastel-pink: #ffd1dc;
+            --pastel-purple: #d8bfd8;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: var(--background);
+            color: var(--text);
+            min-height: 100vh;
+            background-image: url('https://images.unsplash.com/photo-1518655048521-f130df041f66?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            background-blend-mode: overlay;
+            background-color: rgba(248, 241, 238, 0.92);
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Gamification Header */
+        .game-header {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: var(--secondary);
+            padding: 2rem;
+            border-radius: 16px;
+            margin-bottom: 2rem;
+            text-align: center;
+            box-shadow: var(--shadow);
+            position: relative;
+            overflow: hidden;
+            border: 2px solid rgba(255,255,255,0.15);
+            animation: fadeInDown 0.8s ease-out;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            backdrop-filter: blur(4px);
+            background-color: rgba(160, 96, 77, 0.9);
+        }
+
+        /* Main Content */
+        .main-content {
+            display: grid;
+            grid-template-columns: 2.5fr 1.5fr;
+            gap: 2rem;
+            min-height: calc(100vh - 200px);
+        }
+
+        /* Left Column - Map and Activities */
+        .left-column {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        /* Right Column - Bucket List and Stats */
+        .right-column {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        /* Map Container */
+        .map-container {
+            height: 500px;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: var(--shadow);
+            position: relative;
+            border: 3px solid var(--secondary);
+            transition: transform 0.3s;
+            background-color: rgba(255, 255, 255, 0.95);
+        }
+
+        #travelMap {
+            height: 100%;
+            width: 100%;
+            border-radius: 14px;
+        }
+
+        /* Bucket List Styles */
+        .bucket-list-container {
+            background-color: rgba(255, 255, 255, 0.95);
+            padding: 1.8rem;
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            border: 2px solid rgba(160, 96, 77, 0.15);
+        }
+
+        .bucket-list {
+            margin-top: 1rem;
+            max-height: 300px;
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+
+        .bucket-item {
+            display: flex;
+            align-items: center;
+            padding: 0.8rem 1rem;
+            margin-bottom: 0.8rem;
+            background-color: var(--card-bg);
+            border-radius: 10px;
+            box-shadow: var(--shadow);
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .bucket-item:hover {
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-hover);
+        }
+
+        .bucket-item.completed {
+            background-color: var(--pastel-green);
+            opacity: 0.8;
+        }
+
+        .bucket-checkbox {
+            margin-right: 1rem;
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        .bucket-text {
+            flex: 1;
+            font-size: 0.95rem;
+        }
+
+        .bucket-location {
+            font-size: 0.8rem;
+            color: var(--text-light);
+            margin-top: 0.2rem;
+        }
+
+        .add-bucket-item {
+            display: flex;
+            margin-top: 1rem;
+        }
+
+        .add-bucket-input {
+            flex: 1;
+            padding: 0.8rem;
+            border: 1px solid var(--primary-lighter);
+            border-radius: 8px 0 0 8px;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        .add-bucket-btn {
+            padding: 0 1.2rem;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 0 8px 8px 0;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .add-bucket-btn:hover {
+            background-color: var(--primary-dark);
+        }
+
+        /* Achievements Section - Updated for Left Alignment */
+        .achievements-section {
+            background-color: rgba(255, 255, 255, 0.95);
+            padding: 1.8rem;
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            border: 2px solid rgba(160, 96, 77, 0.15);
+            animation: fadeInUp 0.8s ease-out 0.4s both;
+        }
+
+        .achievements-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .achievements-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5rem;
+            text-align: left;
+        }
+
+        .achievement {
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+            transition: all 0.3s;
+            border-left: 4px solid var(--primary);
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.8rem;
+            height: 100%;
+        }
+
+        .achievement-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            width: 100%;
+        }
+
+        .achievement-icon {
+            font-size: 1.8rem;
+            color: var(--primary);
+            min-width: 40px;
+        }
+
+        .achievement-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--primary-dark);
+            margin: 0;
+        }
+
+        .achievement-desc {
+            font-size: 0.9rem;
+            color: var(--text-light);
+            line-height: 1.5;
+        }
+
+        .achievement-progress {
+            width: 100%;
+            height: 8px;
+            background-color: rgba(0,0,0,0.1);
+            border-radius: 4px;
+            margin-top: 0.8rem;
+            overflow: hidden;
+        }
+
+        .achievement-progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--primary-dark));
+            width: 0%;
+            transition: width 0.5s ease;
+        }
+
+        /* Leaderboard Section - Updated for Left Alignment */
+        .leaderboard-section {
+            background-color: rgba(255, 255, 255, 0.95);
+            padding: 1.8rem;
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            border: 2px solid rgba(160, 96, 77, 0.15);
+            margin-top: 2rem;
+        }
+
+        .leaderboard-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .leaderboard-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .leaderboard-item {
+            display: flex;
+            align-items: center;
+            padding: 1rem 1.2rem;
+            border-radius: 10px;
+            background-color: rgba(255,255,255,0.8);
+            transition: all 0.3s;
+            text-align: left;
+        }
+
+        .leaderboard-item:hover {
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-hover);
+        }
+
+        .leaderboard-rank {
+            font-weight: 700;
+            color: var(--primary);
+            width: 40px;
+            text-align: center;
+            font-size: 1.1rem;
+        }
+
+        .leaderboard-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin-right: 1.2rem;
+            border: 2px solid var(--primary-light);
+        }
+
+        .leaderboard-info {
+            flex: 1;
+            text-align: left;
+        }
+
+        .leaderboard-name {
+            font-weight: 600;
+            margin-bottom: 0.3rem;
+            font-size: 1rem;
+            color: var(--primary-dark);
+        }
+
+        .leaderboard-xp {
+            font-size: 0.9rem;
+            color: var(--text-light);
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 0.5rem;
+        }
+
+        /* New Features */
+        .progress-milestones {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 1rem;
+            font-size: 0.85rem;
+            color: var(--text-light);
+        }
+
+        .milestone {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+
+        .milestone-badge {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background-color: var(--pastel-blue);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 0.5rem;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        /* Travel Badges Section */
+        .badges-section {
+            background-color: rgba(255, 255, 255, 0.95);
+            padding: 1.8rem;
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            border: 2px solid rgba(160, 96, 77, 0.15);
+            margin-top: 2rem;
+        }
+
+        .badges-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .badge {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.3s;
+        }
+
+        .badge:hover {
+            transform: scale(1.1);
+        }
+
+        .badge-icon {
+            width: 60px;
+            height: 60px;
+            background-color: var(--pastel-pink);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+            color: var(--primary-dark);
+            border: 2px solid var(--primary-light);
+        }
+
+        .badge.unlocked .badge-icon {
+            background-color: var(--primary-lighter);
+            box-shadow: 0 0 0 3px var(--primary);
+        }
+
+        .badge-name {
+            font-size: 0.7rem;
+            color: var(--text-light);
+        }
+
+        /* Travel Streaks Section */
+        .streak-section {
+            background-color: rgba(255, 255, 255, 0.95);
+            padding: 1.8rem;
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            border: 2px solid rgba(160, 96, 77, 0.15);
+            margin-top: 2rem;
+        }
+
+        /* Journey Timeline */
+        .timeline-section {
+            background-color: rgba(255, 255, 255, 0.95);
+            padding: 1.8rem;
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            border: 2px solid rgba(160, 96, 77, 0.15);
+            margin-top: 2rem;
+        }
+
+        .timeline {
+            position: relative;
+            margin-top: 2rem;
+            padding-left: 30px;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 15px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background-color: var(--primary-lighter);
+        }
+
+        .timeline-item {
+            position: relative;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px dashed var(--primary-lighter);
+        }
+
+        .timeline-item:last-child {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+
+        .timeline-dot {
+            position: absolute;
+            left: -30px;
+            top: 5px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background-color: var(--primary);
+            border: 3px solid var(--secondary);
+        }
+
+        .timeline-date {
+            font-size: 0.8rem;
+            color: var(--primary);
+            font-weight: 500;
+            margin-bottom: 0.3rem;
+        }
+
+        .timeline-content {
+            font-size: 0.9rem;
+            color: var(--text);
+        }
+
+        .timeline-location {
+            font-size: 0.8rem;
+            color: var(--text-light);
+            margin-top: 0.3rem;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+
+        /* Stats Section */
+        .stats-section {
+            background-color: rgba(255, 255, 255, 0.95);
+            padding: 1.8rem;
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            border: 2px solid rgba(160, 96, 77, 0.15);
+        }
+
+        .stat-card {
+            background-color: var(--primary-lighter);
+            border-radius: 8px;
+            padding: 1rem;
+            text-align: center;
+            box-shadow: var(--shadow);
+        }
+
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--primary-dark);
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--text-light);
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 1200px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .achievements-grid {
+                grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            }
+        }
+
+        @media (max-width: 768px) {
+            .game-header {
+                padding: 1.5rem;
+            }
+            
+            .achievements-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .leaderboard-item {
+                padding: 0.8rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Gamification Header -->
+        <div class="game-header">
+            <h1 class="game-title">
+                <i class="fas fa-map-marked-alt"></i> QuestLog
+            </h1>
+            <p class="game-subtitle">Your Personalized Travel Adventure Tracker</p>
+            
+            <div class="xp-container">
+                <div class="xp-bar">
+                    <div class="xp-progress" id="xpProgress" style="width: 45%"></div>
+                </div>
+                <div class="xp-text">
+                    <span>Globetrotter</span>
+                    <span><span id="currentXP">450</span>/<span id="maxXP">1000</span> XP</span>
+                </div>
+                <div class="level-badge">
+                    <i class="fas fa-level-up-alt"></i> Level <span id="currentLevel">4</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Left Column -->
+            <div class="left-column">
+                <!-- Map Section -->
+                <div class="map-container">
+                    <div id="travelMap"></div>
+                </div>
+                
+                <!-- Achievements Section -->
+                <div class="achievements-section">
+                    <div class="achievements-header">
+                        <h2 class="section-title"><i class="fas fa-medal"></i> Your Achievements</h2>
+                        <button class="btn btn-small"><i class="fas fa-trophy"></i> View All</button>
+                    </div>
+                    
+                    <div class="achievements-grid">
+                        <div class="achievement">
+                            <div class="achievement-header">
+                                <div class="achievement-icon"><i class="fas fa-globe-americas"></i></div>
+                                <div>
+                                    <h3 class="achievement-title">World Explorer</h3>
+                                    <div class="achievement-progress">
+                                        <div class="achievement-progress-bar" style="width: 60%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <p class="achievement-desc">Visit 5 different countries (3/5 completed)</p>
+                            <div class="progress-milestones">
+                                <div class="milestone">
+                                    <div class="milestone-badge">1</div>
+                                    <span>+10 XP</span>
+                                </div>
+                                <div class="milestone">
+                                    <div class="milestone-badge">3</div>
+                                    <span>+30 XP</span>
+                                </div>
+                                <div class="milestone">
+                                    <div class="milestone-badge">5</div>
+                                    <span>+50 XP</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="achievement">
+                            <div class="achievement-header">
+                                <div class="achievement-icon"><i class="fas fa-mountain"></i></div>
+                                <div>
+                                    <h3 class="achievement-title">Mountain Seeker</h3>
+                                    <div class="achievement-progress">
+                                        <div class="achievement-progress-bar" style="width: 80%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <p class="achievement-desc">Complete 5 mountain adventures (4/5 completed)</p>
+                        </div>
+                        
+                        <div class="achievement">
+                            <div class="achievement-header">
+                                <div class="achievement-icon"><i class="fas fa-umbrella-beach"></i></div>
+                                <div>
+                                    <h3 class="achievement-title">Beach Lover</h3>
+                                    <div class="achievement-progress">
+                                        <div class="achievement-progress-bar" style="width: 30%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <p class="achievement-desc">Visit 10 beach destinations (3/10 completed)</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Travel Badges Section -->
+                <div class="badges-section">
+                    <h2 class="section-title"><i class="fas fa-award"></i> Your Travel Badges</h2>
+                    <p style="font-size: 0.9rem; color: var(--text-light); margin-top: 0.5rem;">
+                        Collect badges by completing special travel challenges
+                    </p>
+                    <div class="badges-grid">
+                        <div class="badge unlocked">
+                            <div class="badge-icon"><i class="fas fa-plane"></i></div>
+                            <div class="badge-name">First Flight</div>
+                        </div>
+                        <div class="badge unlocked">
+                            <div class="badge-icon"><i class="fas fa-passport"></i></div>
+                            <div class="badge-name">Passport Pro</div>
+                        </div>
+                        <div class="badge">
+                            <div class="badge-icon"><i class="fas fa-sun"></i></div>
+                            <div class="badge-name">Sun Seeker</div>
+                        </div>
+                        <div class="badge">
+                            <div class="badge-icon"><i class="fas fa-camera"></i></div>
+                            <div class="badge-name">Photo Pro</div>
+                        </div>
+                        <div class="badge">
+                            <div class="badge-icon"><i class="fas fa-utensils"></i></div>
+                            <div class="badge-name">Foodie</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Travel Streaks Section -->
+                <div class="streak-section">
+                    <h2 class="section-title"><i class="fas fa-fire" style="color: #ff6b6b;"></i> Travel Streaks</h2>
+                    <p style="font-size: 0.9rem; color: var(--text-light); margin-top: 0.5rem;">
+                        Keep your travel momentum going! Log trips to maintain your streak.
+                    </p>
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 1.5rem;">
+                        <div style="text-align: center;">
+                            <div style="font-size: 2.5rem; font-weight: 700; color: var(--primary);">7</div>
+                            <div style="font-size: 0.8rem; color: var(--text-light);">Current Streak</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="font-size: 2.5rem; font-weight: 700; color: var(--primary);">12</div>
+                            <div style="font-size: 0.8rem; color: var(--text-light);">Longest Streak</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="font-size: 2.5rem; font-weight: 700; color: var(--primary);">3</div>
+                            <div style="font-size: 0.8rem; color: var(--text-light);">Trips This Month</div>
+                        </div>
+                    </div>
+                    <div style="margin-top: 1.5rem; display: flex; justify-content: space-between;">
+                        <div style="width: 14%; height: 8px; background-color: var(--success); border-radius: 4px;"></div>
+                        <div style="width: 14%; height: 8px; background-color: var(--success); border-radius: 4px;"></div>
+                        <div style="width: 14%; height: 8px; background-color: var(--success); border-radius: 4px;"></div>
+                        <div style="width: 14%; height: 8px; background-color: var(--success); border-radius: 4px;"></div>
+                        <div style="width: 14%; height: 8px; background-color: var(--success); border-radius: 4px;"></div>
+                        <div style="width: 14%; height: 8px; background-color: var(--warning); border-radius: 4px;"></div>
+                        <div style="width: 14%; height: 8px; background-color: var(--danger); border-radius: 4px;"></div>
+                    </div>
+                    <div style="margin-top: 0.5rem; font-size: 0.8rem; color: var(--text-light); text-align: center;">
+                        Your weekly travel activity
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Right Column -->
+            <div class="right-column">
+                <!-- Bucket List Section -->
+                <div class="bucket-list-container">
+                    <h2 class="section-title"><i class="fas fa-list-check"></i> My Travel Bucket List</h2>
+                    <div class="bucket-list" id="bucketList">
+                        <!-- Bucket list items will be added here by JavaScript -->
+                    </div>
+                    <div class="add-bucket-item">
+                        <input type="text" class="add-bucket-input" id="newBucketItem" placeholder="Add a new travel goal...">
+                        <button class="add-bucket-btn" id="addBucketBtn"><i class="fas fa-plus"></i></button>
+                    </div>
+                </div>
+                
+                <!-- Leaderboard Section -->
+                <div class="leaderboard-section">
+                    <div class="leaderboard-header">
+                        <h2 class="section-title"><i class="fas fa-trophy"></i> Travel Leaderboard</h2>
+                        <button class="btn btn-small"><i class="fas fa-crown"></i> Your Rank: 12</button>
+                    </div>
+                    
+                    <div class="leaderboard-list">
+                        <div class="leaderboard-item">
+                            <div class="leaderboard-rank">1</div>
+                            <img src="https://api.dicebear.com/7.x/adventurer/svg?seed=Sarah" class="leaderboard-avatar">
+                            <div class="leaderboard-info">
+                                <div class="leaderboard-name">Sarah Adventurer</div>
+                                <div class="leaderboard-xp">
+                                    <i class="fas fa-star" style="color: gold;"></i>
+                                    <span>2,850 XP</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="leaderboard-item">
+                            <div class="leaderboard-rank">2</div>
+                            <img src="https://api.dicebear.com/7.x/adventurer/svg?seed=Mike" class="leaderboard-avatar">
+                            <div class="leaderboard-info">
+                                <div class="leaderboard-name">Mike Explorer</div>
+                                <div class="leaderboard-xp">
+                                    <i class="fas fa-star" style="color: silver;"></i>
+                                    <span>2,450 XP</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="leaderboard-item">
+                            <div class="leaderboard-rank">3</div>
+                            <img src="https://api.dicebear.com/7.x/adventurer/svg?seed=Lisa" class="leaderboard-avatar">
+                            <div class="leaderboard-info">
+                                <div class="leaderboard-name">Lisa Wanderer</div>
+                                <div class="leaderboard-xp">
+                                    <i class="fas fa-star" style="color: #cd7f32;"></i>
+                                    <span>2,150 XP</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="leaderboard-item">
+                            <div class="leaderboard-rank">4</div>
+                            <img src="https://api.dicebear.com/7.x/adventurer/svg?seed=David" class="leaderboard-avatar">
+                            <div class="leaderboard-info">
+                                <div class="leaderboard-name">David Traveler</div>
+                                <div class="leaderboard-xp">
+                                    <i class="fas fa-star"></i>
+                                    <span>1,950 XP</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Journey Timeline -->
+                <div class="timeline-section">
+                    <h2 class="section-title"><i class="fas fa-history"></i> Your Journey Timeline</h2>
+                    <div class="timeline">
+                        <div class="timeline-item">
+                            <div class="timeline-dot"></div>
+                            <div class="timeline-date">June 2023</div>
+                            <div class="timeline-content">Visited Bali, Indonesia</div>
+                            <div class="timeline-location">
+                                <i class="fas fa-map-marker-alt"></i> Ubud, Bali
+                            </div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-dot"></div>
+                            <div class="timeline-date">March 2023</div>
+                            <div class="timeline-content">Hiked Mount Fuji</div>
+                            <div class="timeline-location">
+                                <i class="fas fa-map-marker-alt"></i> Japan
+                            </div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-dot"></div>
+                            <div class="timeline-date">December 2022</div>
+                            <div class="timeline-content">Christmas in New York</div>
+                            <div class="timeline-location">
+                                <i class="fas fa-map-marker-alt"></i> NYC, USA
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stats Section -->
+                <div class="stats-section">
+                    <h2 class="section-title"><i class="fas fa-chart-pie"></i> Your Travel Statistics</h2>
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 1rem;">
+                        <div class="stat-card">
+                            <div class="stat-value">7</div>
+                            <div class="stat-label">Countries</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">23</div>
+                            <div class="stat-label">Cities</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">15</div>
+                            <div class="stat-label">Adventures</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS for map -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Initialize the map
+        const map = L.map('travelMap').setView([20, 0], 2);
+
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // Sample travel locations with coordinates [lat, lng]
+        const travelLocations = [
+            { name: "Bali, Indonesia", coords: [-8.4095, 115.1889], type: "beach" },
+            { name: "Mount Fuji, Japan", coords: [35.3606, 138.7274], type: "mountain" },
+            { name: "New York, USA", coords: [40.7128, -74.0060], type: "city" },
+            { name: "Paris, France", coords: [48.8566, 2.3522], type: "city" },
+            { name: "Santorini, Greece", coords: [36.3932, 25.4615], type: "beach" }
+        ];
+
+        // Different icons for different location types
+        const icons = {
+            beach: L.divIcon({
+                className: 'beach-icon',
+                html: '<i class="fas fa-umbrella-beach" style="color: #ff6b6b; font-size: 24px;"></i>',
+                iconSize: [24, 24],
+                iconAnchor: [12, 12]
+            }),
+            mountain: L.divIcon({
+                className: 'mountain-icon',
+                html: '<i class="fas fa-mountain" style="color: #5f6caf; font-size: 24px;"></i>',
+                iconSize: [24, 24],
+                iconAnchor: [12, 12]
+            }),
+            city: L.divIcon({
+                className: 'city-icon',
+                html: '<i class="fas fa-city" style="color: #4b7bec; font-size: 24px;"></i>',
+                iconSize: [24, 24],
+                iconAnchor: [12, 12]
+            })
+        };
+
+        // Add markers for each location
+        travelLocations.forEach(location => {
+            const marker = L.marker(location.coords, {
+                icon: icons[location.type]
+            }).addTo(map);
+            
+            marker.bindPopup(`<b>${location.name}</b><br>Visited: ${new Date().toLocaleDateString()}`);
+        });
+
+        const bucketList = document.getElementById('bucketList');
+        const newBucketItem = document.getElementById('newBucketItem');
+        const addBucketBtn = document.getElementById('addBucketBtn');
+
+        // Sample bucket list items
+        const sampleBucketItems = [
+            { text: "Visit the Great Wall of China", location: "China", completed: false },
+            { text: "See the Northern Lights", location: "Iceland", completed: true },
+            { text: "Go on a Safari in Africa", location: "Kenya", completed: false },
+            { text: "Swim in the Dead Sea", location: "Jordan", completed: false }
+        ];
+
+        // Render bucket list items
+        function renderBucketList() {
+            bucketList.innerHTML = '';
+            sampleBucketItems.forEach((item, index) => {
+                const bucketItem = document.createElement('div');
+                bucketItem.className = `bucket-item ${item.completed ? 'completed' : ''}`;
+                bucketItem.innerHTML = `
+                    <input type="checkbox" class="bucket-checkbox" ${item.completed ? 'checked' : ''} data-index="${index}">
+                    <div class="bucket-text">
+                        ${item.text}
+                        <div class="bucket-location"><i class="fas fa-map-marker-alt"></i> ${item.location}</div>
+                    </div>
+                `;
+                bucketList.appendChild(bucketItem);
+            });
+
+            // Add event listeners to checkboxes
+            document.querySelectorAll('.bucket-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    const index = this.dataset.index;
+                    sampleBucketItems[index].completed = this.checked;
+                    renderBucketList();
+                });
+            });
+        }
+
+        // Add new bucket list item
+        addBucketBtn.addEventListener('click', function() {
+            const text = newBucketItem.value.trim();
+            if (text) {
+                sampleBucketItems.unshift({
+                    text: text,
+                    location: "Unknown",
+                    completed: false
+                });
+                newBucketItem.value = '';
+                renderBucketList();
+            }
+        });
+
+        // Also allow adding with Enter key
+        newBucketItem.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                addBucketBtn.click();
+            }
+        });
+
+        // Initial render
+        renderBucketList();
+
+        // Leaderboard item click functionality
+        document.querySelectorAll('.leaderboard-item').forEach((item, index) => {
+            item.addEventListener('click', () => {
+                alert(`You clicked on rank ${index + 1}`);
+            });
+        });
+
+        // Badge click functionality
+        document.querySelectorAll('.badge').forEach(badge => {
+            badge.addEventListener('click', function() {
+                if (this.classList.contains('unlocked')) {
+                    alert(`You've unlocked the "${this.querySelector('.badge-name').textContent}" badge!`);
+                } else {
+                    alert('Complete challenges to unlock this badge!');
+                }
+            });
+        });
+
+        // Streak animation
+        const streakSection = document.querySelector('.streak-section');
+        streakSection.addEventListener('click', function() {
+            alert('Keep your streak alive! Log a trip today to continue your 7-day streak!');
+        });
+    </script>
+</body>
+</html>

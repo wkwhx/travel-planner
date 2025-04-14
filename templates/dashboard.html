@@ -1,0 +1,1160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voyager Dashboard</title>
+    <!-- Choices.js CSS -->
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;700&family=Poppins:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/markdown-it/12.3.2/markdown-it.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.14.0/Sortable.min.js"></script>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <a href="#" class="navbar-brand"> 
+            <i class="fas fa-compass"></i>
+            <span>VOYAGER</span>
+        </a>
+        <div class="user-menu">
+            <button id="dark-mode-toggle" class="btn btn-icon">
+                <i class="fas fa-moon"></i>
+            </button>
+            <div class="avatar-dropdown">
+                <div class="user-avatar dropdown-toggle">
+                    <span>{{ user.username[0]|upper }}</span>
+                    <i class="fas fa-chevron-down dropdown-arrow"></i>
+                </div>
+                <div class="dropdown-menu">
+                    <div class="dropdown-header">
+                        <div class="dropdown-avatar">{{ user.username[0]|upper }}</div>
+                        <div class="dropdown-user-info">
+                            <div class="dropdown-username">{{ user.username }}</div>
+                            <div class="dropdown-email">{{ user.email }}</div>
+                        </div>
+                    </div>
+                    <div class="dropdown-divider"></div>
+                    <button class="dropdown-item" onclick="logout()">
+                        <i class="fas fa-sign-out-alt"></i>
+                        <span>Sign Out</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="dashboard-container">
+        <!-- Welcome Section -->
+        <section class="welcome-section">
+            <h2><i class="fas fa-sun"></i> Welcome back, {{ user.username }}!</h2>
+            <p>Your next adventure awaits! Where will your compass point today?</p>
+</section>
+        <!-- Overview Cards -->
+        <section class="overview-cards">
+            <div class="overview-card">
+                <i class="fas fa-calendar-alt"></i>
+                <h3>Upcoming Trips</h3>
+                <p id="upcoming-trips-count">0</p>
+            </div>
+            <div class="overview-card">
+                <i class="fas fa-list-check"></i>
+                <h3>Bucket List</h3>
+                <a href="/bucketlist" class="bucketlist-link">View List</a>
+            </div>
+            <div class="overview-card">
+                <i class="fas fa-cloud-sun"></i>
+                <h3>Current Location</h3>
+                <p id="current-location">Loading...</p>
+            </div>
+        </section>
+
+        <!-- Left Column - Main Content -->
+        <div class="left-column">
+            <!-- Trip Planner Section -->
+            <!-- Updated Trip Planner Section -->
+            <section class="content-section">
+                <div class="section-header">
+                  <i class="fas fa-map-marked-alt"></i>
+                  <h2>Trip Planner</h2>
+                </div>
+                <p>Plan your dream trip by providing the details below.</p>
+              
+                <div class="form-container">
+                  <!-- FROM / TO -->
+                  <div class="input-row">
+                    <input type="text" placeholder="From (e.g., New York, USA)">
+                    <input type="text" placeholder="To (e.g., Paris, France)">
+                  </div>
+              
+                  <!-- DATES -->
+                  <div class="input-row">
+                    <input type="date" placeholder="Start date">
+                    <input type="date" placeholder="End date">
+                  </div>
+              
+                  <!-- TRIP DESCRIPTION -->
+                  <input type="text" class="full-width trip-description" placeholder="Trip description (e.g., Romantic getaway)">
+              
+                  <!-- TRIP TYPE -->
+                  <div class="trip-type-section">
+                    <label>Trip Type:</label>
+                    <div class="trip-type-options">
+                      <label><input type="checkbox" value="Adventure"> Adventure</label>
+                      <label><input type="checkbox" value="Beach"> Beach</label>
+                      <label><input type="checkbox" value="Cultural"> Cultural</label>
+                      <label><input type="checkbox" value="Historical"> Historical</label>
+                      <label><input type="checkbox" value="Luxury"> Luxury</label>
+                      <label><input type="checkbox" value="Nature"> Nature</label>
+                      <label><input type="checkbox" value="Romantic"> Romantic</label>
+                      <label><input type="checkbox" value="Wildlife"> Wildlife</label>
+                    </div>
+                  </div>
+              
+                  <!-- BUDGET -->
+                  <div class="budget-section">
+                    <label>Budget Range: <span id="budget-min">500</span> – <span id="budget-max">5000</span> USD</label>
+                    <div class="range-slider">
+                      <input type="range" id="budget-min-slider" min="100" max="15000" step="100" value="500">
+                      <input type="range" id="budget-max-slider" min="100" max="15000" step="100" value="5000">
+                    </div>
+                  </div>
+                </div>
+              
+                <style>
+                  .form-container {
+                    margin-top: 1.5rem;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 1.25rem;
+                  }
+              
+                  .input-row {
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 1rem;
+                  }
+              
+                  .input-row input,
+                  .full-width {
+                    flex: 1;
+                    padding: 12px 14px;
+                    font-size: 0.95rem;
+                    border: 1px solid #d1d5db;
+                    border-radius: 8px;
+                    background-color: #fff;
+                    color: #111827;
+                    box-sizing: border-box;
+                  }
+              
+                  .trip-description {
+                    font-size: 1.05rem;
+                    color: #111827;
+                  }
+              
+                  .full-width {
+                    width: 100%;
+                  }
+              
+                  .input-row input:focus,
+                  .full-width:focus {
+                    border-color: #a0522d;
+                    outline: none;
+                  }
+              
+                  .trip-type-section {
+                    background-color: #f9fafb;
+                    padding: 1rem;
+                    border: 1px solid #e5e7eb;
+                    border-radius: 10px;
+                    font-size: 0.9rem;
+                    color: #6b7280; /* Light gray */
+                  }
+              
+                  .trip-type-section > label {
+                    font-size: 0.9rem;
+                    font-weight: 500;
+                    color: #6b7280;
+                  }
+              
+                  .trip-type-options {
+                    margin-top: 0.5rem;
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+                    gap: 0.75rem;
+                    font-size: 0.95rem;
+                    color: #6b7280;
+                  }
+              
+                  .trip-type-options label {
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    background: #fff;
+                    padding: 6px 10px;
+                    border: 1px solid #d1d5db;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    transition: border-color 0.2s ease;
+                    color: #6b7280;
+                  }
+              
+                  .trip-type-options label:hover {
+                    border-color: #a0522d;
+                  }
+              
+                  .trip-type-options input[type="checkbox"] {
+                    accent-color: #a0522d;
+                  }
+              
+                  .budget-section label {
+                    display: block;
+                    font-size: 0.9rem;
+                    margin-bottom: 0.5rem;
+                    color: #6b7280;
+                  }
+              
+                  .range-slider {
+                    display: flex;
+                    gap: 0.75rem;
+                    align-items: center;
+                  }
+              
+                  .range-slider input[type="range"] {
+                    -webkit-appearance: none;
+                    width: 100%;
+                    height: 6px;
+                    background: #eee;
+                    border-radius: 3px;
+                    outline: none;
+                    transition: background 0.2s ease;
+                  }
+              
+                  .range-slider input[type="range"]::-webkit-slider-thumb {
+                    -webkit-appearance: none;
+                    height: 14px;
+                    width: 14px;
+                    background: #a0522d;
+                    border-radius: 50%;
+                    cursor: pointer;
+                    border: none;
+                  }
+              
+                  .range-slider input[type="range"]::-moz-range-thumb {
+                    height: 14px;
+                    width: 14px;
+                    background: #a0522d;
+                    border-radius: 50%;
+                    cursor: pointer;
+                    border: none;
+                  }
+              
+                  @media (max-width: 640px) {
+                    .input-row {
+                      flex-direction: column;
+                    }
+                  }
+                </style>                      
+<div class="action-buttons" style="margin-top: 1.5rem;">
+    <button type="button" class="btn btn-primary" id="generate-itinerary-btn">
+        <i class="fas fa-map-marked-alt"></i> Generate Itinerary
+    </button> 
+</div>
+<div class="loading-container" id="itinerary-loading" style="display: none; margin: 1rem auto;">
+    <div class="loading-content">
+        <div class="loading-spinner">
+            <div class="spinner-circle"></div>
+        </div>
+        <h2 class="loading-text">Creating Your Itinerary</h2>
+        <p class="loading-subtext">Tailoring your perfect trip experience</p>
+        <div class="progress-dots">
+            <div class="dot"></div>
+            <div class="dot"></div>
+            <div class="dot"></div>
+        </div>
+    </div>
+</div>
+</section>
+<!-- Add this right after the Trip Planner section -->
+<div id="itinerary-container"></div>
+            <!-- Expense Splitter Section -->
+            <section class="content-section">
+                <div class="section-header">
+                    <i class="fas fa-money-bill-wave"></i>
+                    <h2>Expense Splitter</h2>
+                </div>
+                <p>Track shared expenses and calculate who owes whom.</p>
+                
+                <div class="input-group">
+                    <div class="expense-input">
+                        <label for="name">Name:</label><br>
+                        <input type="text" id="name" placeholder="Enter name">
+                    </div>
+                    <div class="expense-input">
+                        <label for="amount">Amount ($):</label><br>
+                        <input type="number" id="amount" placeholder="Enter amount" min="0" step="0.01">
+                    </div>
+                    <div class="expense-input">
+                        <label for="expense-category">Category:</label>
+                        <select id="expense-category">
+                            <option value="Food">Food</option>
+                            <option value="Transport">Transport</option>
+                            <option value="Accommodation">Accommodation</option>
+                            <option value="Activities">Activities</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="action-buttons">
+                    <button class="btn" onclick="addExpense()">
+                        <i class="fas fa-plus-circle"></i> Add Expense
+                    </button>
+                    <button class="btn btn-accent" onclick="calculateExpenses()">
+                        <i class="fas fa-calculator"></i> Calculate Balances
+                    </button>
+                    
+<button class="btn" onclick="saveExpenses()"><i class="fas fa-save"></i> Save</button>
+<button class="btn" onclick="loadExpenses()"><i class="fas fa-folder-open"></i> Load</button>
+<button class="btn btn-outline" onclick="resetExpenses()"><i class="fas fa-trash"></i> Reset</button>
+                </div>
+
+                <table class="expense-table" id="expenseTable">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Amount</th>
+                            <th>Category</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Expense entries will go here -->
+                    </tbody>
+                </table>
+
+                <div class="result" id="result" style="display: none;">
+                    <h3>Expense Summary</h3>
+                    <div id="summary-content"></div>
+                    <div id="transactions" style="margin-top: 0.8rem;"></div>
+                </div>
+            </section>
+
+            <!-- In dashboard.html, update the Currency Converter section -->
+<section class="content-section">
+    <div class="section-header">
+        <i class="fas fa-exchange-alt"></i>
+        <h2>Currency Converter</h2>
+    </div>
+    
+    <div class="input-group">
+        <input type="number" id="amount-to-convert" placeholder="Amount" min="0" step="0.01">
+        <select id="from-currency">
+            <option value="USD">USD</option>
+            <option value="EUR">EUR</option>
+            <option value="GBP">GBP</option>
+            <option value="JPY">JPY</option>
+            <option value="CAD">CAD</option>
+            <option value="AUD">AUD</option>
+            <option value="CNY">CNY</option>
+            <option value="INR">INR</option>
+        </select>
+        <div class="currency-to-text">to</div>
+        <select id="to-currency">
+            <option value="EUR">EUR</option>
+            <option value="USD">USD</option>
+            <option value="GBP">GBP</option>
+            <option value="JPY">JPY</option>
+            <option value="CAD">CAD</option>
+            <option value="AUD">AUD</option>
+            <option value="CNY">CNY</option>
+            <option value="INR">INR</option>
+        </select>
+    </div>
+    
+    <div class="action-buttons">
+        <button class="btn" onclick="convertCurrency()">
+            <i class="fas fa-calculator"></i> Convert
+        </button>
+    </div>
+    
+    <!-- Update the loading container in the Currency Converter section -->
+<div class="loading-container" id="conversion-loading" style="display: none;">
+    <div class="loading-content">
+        <div class="loading-spinner">
+            <div class="spinner-circle"></div>
+        </div>
+        <h2 class="loading-text">Converting Currency...</h2>
+    </div>
+</div>
+    
+    <div class="result" id="conversion-result" style="display: none;">
+        <div class="result-item">
+            <span id="conversion-text"></span>
+        </div>
+        <div class="result-item" id="conversion-rate" style="margin-top: 0.5rem;"></div>
+    </div>
+    
+    <div class="error-message" id="conversion-error" style="display: none;">
+        <i class="fas fa-exclamation-circle"></i>
+        <span id="error-text"></span>
+    </div>
+</section>
+<!-- In the left column, before the closing </div> -->
+<section class="content-section">
+    <div class="section-header">
+        <i class="fas fa-suitcase"></i>
+        <h2>Packing Lists</h2>
+    </div>
+    <p>Create and manage packing lists for your trips</p>
+    
+    <div class="packing-lists-container">
+        <div class="packing-lists" id="packingLists">
+            <!-- Lists will be added here by JavaScript -->
+        </div>
+        
+        <div class="packing-list-input">
+            <input type="text" id="newPackingList" placeholder="New list name...">
+            <button id="addPackingBtn" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Add
+            </button>
+        </div>
+    </div>
+    
+    <!-- Packing List Modal -->
+    <div class="modal-overlay" id="packingModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="packingModalTitle">Packing List</h3>
+                <button id="packingModalClose">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="packing-items" id="packingItemsList">
+                    <!-- Items will be added here -->
+                </div>
+                <div class="packing-item-input">
+                    <input type="text" id="newPackingItem" placeholder="Add new item...">
+                    <button id="addPackingItemBtn" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Add
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+<!-- Add this right after the Currency Converter section in the left column -->
+        </div>
+
+        <!-- Right Column - Sidebar Content -->
+        <div class="right-column">
+            <!-- Randomizer -->
+            <section class="sidebar-section">
+                <div class="section-header">
+                    <div class="section-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M19 3H5C3.89543 3 3 3.89543 3 5V19C3 20.1046 3.89543 21 5 21H19C20.1046 21 21 20.1046 21 19V5C21 3.89543 20.1046 3 19 3Z" stroke="currentColor" stroke-width="1.5"/>
+                            <circle cx="8" cy="8" r="1.5" fill="currentColor"/>
+                            <circle cx="16" cy="8" r="1.5" fill="currentColor"/>
+                            <circle cx="8" cy="16" r="1.5" fill="currentColor"/>
+                            <circle cx="16" cy="16" r="1.5" fill="currentColor"/>
+                            <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
+                        </svg>
+                    </div>
+                    <h2>Destination Selector</h2>
+                </div>
+                
+                <div class="destination-selector">
+                    <div class="destination-card">
+                        <div class="destination-media" id="destination-media">
+                            <div class="media-overlay"></div>
+                            <div class="destination-content">
+                                <span class="destination-type" id="destination-type">Featured</span>
+                                <h3 id="destination-name">Select a Destination</h3>
+                                <p id="destination-description">Discover exceptional travel experiences</p>
+                            </div>
+                        </div>
+                        <div class="destination-actions">
+                            <button class="btn-selector" id="randomize-destination">
+                                <span>Randomise Destination</span>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M14.9348 3.46325L15.6871 4.2156L14.9348 3.46325C14.3174 2.84588 14.3174 1.85412 15.6871 1.85412C17.0568 1.85412 17.0568 2.84588 16.4394 3.46325L17.9441 4.96794C18.5615 5.58531 18.5615 6.57707 17.9441 7.19444L16.4394 8.69913C15.8221 9.3165 14.8303 9.3165 14.2129 8.69913L13.4606 7.94678M9.3165 20.5368L8.56415 19.7844M19.7844 15.6871L20.5368 14.9348C21.1541 14.3174 21.1541 13.3257 20.5368 12.7083L19.7844 11.956M11.956 19.7844L12.7083 20.5368C13.3257 21.1541 14.3174 21.1541 14.9348 20.5368L15.6871 19.7844M4.2156 8.56415L3.46325 9.3165C2.84588 9.93387 2.84588 10.9256 3.46325 11.543L4.2156 12.2954M8.56415 4.2156L7.8118 3.46325C7.19443 2.84588 6.20267 2.84588 5.5853 3.46325L4.08061 4.96794C3.46324 5.58531 3.46324 6.57707 4.08061 7.19444L5.5853 8.69913" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <style>
+            /* Premium Destination Selector */
+            .section-header {
+                position: relative;
+                margin-bottom: 1.5rem;
+            }
+            
+            .section-icon {
+                width: 40px;
+                height: 40px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: rgba(160, 96, 77, 0.1);
+                border-radius: 8px;
+                margin-bottom: 12px;
+                color: var(--primary);
+            }
+            
+            .section-icon svg {
+                width: 24px;
+                height: 24px;
+            }
+            
+            .destination-selector {
+                position: relative;
+            }
+            
+            .destination-card {
+                background: white;
+                border-radius: 12px;
+                overflow: hidden;
+                box-shadow: 0 8px 32px rgba(0,0,0,0.05);
+                transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            }
+            
+            .destination-card:hover {
+                transform: translateY(-4px);
+                box-shadow: 0 12px 40px rgba(0,0,0,0.1);
+            }
+            
+            .destination-media {
+                position: relative;
+                height: 200px;
+                background-size: cover;
+                background-position: center;
+                transition: all 0.6s ease;
+            }
+            
+            .media-overlay {
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.2) 100%);
+            }
+            
+            .destination-content {
+                position: absolute;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                padding: 1.5rem;
+                color: white;
+                z-index: 2;
+            }
+            
+            .destination-type {
+                background: var(--accent);
+                color: var(--dark);
+                padding: 4px 8px;
+                border-radius: 4px;
+                font-weight: 600;
+                font-size: 0.75rem;
+                display: inline-block;
+                margin-bottom: 8px;
+            }
+            
+            .destination-content h3 {
+                font-size: 1.4rem;
+                font-weight: 600;
+                margin-bottom: 0.5rem;
+                line-height: 1.3;
+            }
+            
+            .destination-content p {
+                font-size: 0.9rem;
+                opacity: 0.9;
+                line-height: 1.5;
+            }
+            
+            .destination-actions {
+                padding: 1rem;
+            }
+            
+            .btn-selector {
+                width: 100%;
+                background: var(--primary);
+                color: white;
+                border: none;
+                padding: 0.9rem 1.5rem;
+                border-radius: 8px;
+                font-size: 0.9rem;
+                font-weight: 500;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 8px;
+                transition: all 0.3s ease;
+                cursor: pointer;
+            }
+            
+            .btn-selector:hover {
+                background: var(--primary-dark);
+                transform: translateY(-2px);
+            }
+            
+            .btn-selector svg {
+                width: 16px;
+                height: 16px;
+            }
+            
+            /* Dark mode adjustments */
+            .dark-mode .destination-card {
+                background: var(--dark-card);
+                box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+            }
+            
+            .dark-mode .destination-type {
+                color: var(--dark-text);
+            }
+            
+            /* Animation */
+            @keyframes fadeIn {
+                from { opacity: 0; transform: translateY(8px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+            
+            .destination-enter {
+                animation: fadeIn 0.6s ease-out forwards;
+            }
+            
+            /* Spinner for loading state */
+            .spinner {
+                width: 16px;
+                height: 16px;
+                border: 2px solid rgba(255,255,255,0.3);
+                border-radius: 50%;
+                border-top-color: white;
+                animation: spin 1s ease-in-out infinite;
+            }
+            
+            @keyframes spin {
+                to { transform: rotate(360deg); }
+            }
+            </style>
+            
+            <script>
+            // Updated destination database with new image URLs
+            const premiumDestinations = [
+                {
+                    name: "Santorini, Greece",
+                    description: "Whitewashed villages cascading down volcanic cliffs",
+                    image: "https://images.unsplash.com/photo-1491955524898-bdbdb5668abb?q=80&w=1974&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+                    type: "Luxury"
+                },
+                {
+                    name: "Kyoto, Japan",
+                    description: "Ancient temples framed by seasonal cherry blossoms",
+                    image: "https://images.unsplash.com/photo-1610265082060-7234c9de51ab?q=80&w=2071&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+                    type: "Cultural"
+                },
+                {
+                    name: "Jaipur, India",
+                    description: "The Pink City with majestic palaces and vibrant bazaars",
+                    image: "https://images.unsplash.com/photo-1545126178-862cdb469409?q=80&w=1974&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+                    type: "Heritage"
+                },
+                {
+                    name: "Patagonia, Chile",
+                    description: "Towering granite peaks and glacial lakes",
+                    image: "https://images.unsplash.com/photo-1558517286-8a9cb0b8c793?q=80&w=2065&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+                    type: "Adventure"
+                },
+                {
+                    name: "Amalfi Coast, Italy",
+                    description: "Colorful cliffside villages overlooking the sea",
+                    image: "https://images.unsplash.com/photo-1601445862636-aa4cae12f5c3?q=80&w=1974&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+                    type: "Romantic"
+                },
+                {
+                    name: "Banff National Park, Canada",
+                    description: "Emerald lakes and snow-capped peaks",
+                    image: "https://images.unsplash.com/photo-1561134643-668f9057cce4?q=80&w=1974&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+                    type: "Nature"
+                },
+                {
+                    name: "Serengeti, Tanzania",
+                    description: "Witness the great migration across golden plains",
+                    image: "https://images.unsplash.com/photo-1538209647246-bb82d2e4b372?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+                    type: "Wildlife"
+                },
+                {
+                    name: "Bora Bora, French Polynesia",
+                    description: "Overwater bungalows in turquoise lagoons",
+                    image: "https://images.unsplash.com/photo-1676405328043-85738f8473ba?q=80&w=1974&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+                    type: "Luxury"
+                },
+                {
+                    name: "Dubrovnik, Croatia",
+                    description: "Medieval walls along the Adriatic coast",
+                    image: "https://plus.unsplash.com/premium_photo-1661963788724-cf3cef90336f?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+                    type: "Cultural"
+                },
+                {
+                    name: "Kerala, India",
+                    description: "Backwaters, beaches and lush green landscapes",
+                    image: "https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?q=80&w=1932&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+                    type: "Nature"
+                },
+                {
+                    name: "Reykjavik, Iceland",
+                    description: "Northern lights and geothermal wonders",
+                    image: "https://images.unsplash.com/photo-1596102224844-3b185315abc8?q=80&w=2182&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+                    type: "Adventure"
+                },
+                {
+                    name: "Queenstown, New Zealand",
+                    description: "Adventure capital of the world",
+                    image: "https://images.unsplash.com/photo-1507699622108-4be3abd695ad?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1200&q=80",
+                    type: "Adventure"
+                },
+                {
+                    name: "Marrakech, Morocco",
+                    description: "Vibrant souks and desert landscapes",
+                    image: "https://plus.unsplash.com/premium_photo-1673415819362-c2ca640bfafe?q=80&w=2071&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+                    type: "Cultural"
+                },
+                {
+                    name: "Cappadocia, Turkey",
+                    description: "Hot air balloons over fairy chimneys",
+                    image: "https://plus.unsplash.com/premium_photo-1661964146949-a35b9ae06f89?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+                    type: "Unique"
+                },
+                {
+                    name: "Machu Picchu, Peru",
+                    description: "Ancient Incan city in the Andes mountains",
+                    image: "https://images.unsplash.com/photo-1526392060635-9d6019884377?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1200&q=80",
+                    type: "Historical"
+                },
+                {
+                    name: "Sydney, Australia",
+                    description: "Iconic harbor with the Opera House and Harbour Bridge",
+                    image: "https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1200&q=80",
+                    type: "Urban"
+                },
+                {
+                    name: "Rio de Janeiro, Brazil",
+                    description: "Christ the Redeemer overlooking vibrant beaches",
+                    image: "https://images.unsplash.com/photo-1483729558449-99ef09a8c325?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1200&q=80",
+                    type: "Iconic"
+                },
+                {
+                    name: "Petra, Jordan",
+                    description: "Rose-red city carved into ancient cliffs",
+                    image: "https://images.unsplash.com/photo-1680423494383-b1e7f6b47235?q=80&w=1974&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+                    type: "Archaeological"
+                },
+                {
+                    name: "Venice, Italy",
+                    description: "Canals and Renaissance architecture",
+                    image: "https://images.unsplash.com/photo-1514890547357-a9ee288728e0?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1200&q=80",
+                    type: "Romantic"
+                },
+                {
+                    name: "Angkor Wat, Cambodia",
+                    description: "Largest religious monument in the world",
+                    image: "https://images.unsplash.com/photo-1552465011-b4e21bf6e79a?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1200&q=80",
+                    type: "Historical"
+                },
+                {
+                    name: "Great Barrier Reef, Australia",
+                    description: "World's largest coral reef system",
+                    image: "https://plus.unsplash.com/premium_photo-1683910767532-3a25b821f7ae?q=80&w=2008&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+                    type: "Marine"
+                },
+                {
+                    name: "Yosemite National Park, USA",
+                    description: "Granite cliffs, waterfalls and giant sequoias",
+                    image: "https://plus.unsplash.com/premium_photo-1673603987324-169187865e11?q=80&w=2071&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+                    type: "Wilderness"
+                }
+            ];
+            
+            function initDestinationSelector() {
+                const mediaEl = document.getElementById('destination-media');
+                const nameEl = document.getElementById('destination-name');
+                const descEl = document.getElementById('destination-description');
+                const typeEl = document.getElementById('destination-type');
+                const randomizeBtn = document.getElementById('randomize-destination');
+            
+                let currentIndex = -1;
+            
+                const showRandomDestination = () => {
+                    // Add loading state
+                    randomizeBtn.innerHTML = '<span>Finding destination...</span><div class="spinner"></div>';
+                    
+                    // Fade out current
+                    mediaEl.style.opacity = '0.5';
+                    
+                    setTimeout(() => {
+                        // Get new random destination (no immediate repeats)
+                        let newIndex;
+                        do {
+                            newIndex = Math.floor(Math.random() * premiumDestinations.length);
+                        } while (newIndex === currentIndex && premiumDestinations.length > 1);
+                        
+                        currentIndex = newIndex;
+                        const dest = premiumDestinations[currentIndex];
+                        
+                        // Update display
+                        mediaEl.style.backgroundImage = `url('${dest.image}')`;
+                        nameEl.textContent = dest.name;
+                        descEl.textContent = dest.description;
+                        typeEl.textContent = dest.type;
+                        
+                        // Reset button
+                        randomizeBtn.innerHTML = '<span>Randomise Destination</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M14.9348 3.46325L15.6871 4.2156L14.9348 3.46325C14.3174 2.84588 14.3174 1.85412 15.6871 1.85412C17.0568 1.85412 17.0568 2.84588 16.4394 3.46325L17.9441 4.96794C18.5615 5.58531 18.5615 6.57707 17.9441 7.19444L16.4394 8.69913C15.8221 9.3165 14.8303 9.3165 14.2129 8.69913L13.4606 7.94678M9.3165 20.5368L8.56415 19.7844M19.7844 15.6871L20.5368 14.9348C21.1541 14.3174 21.1541 13.3257 20.5368 12.7083L19.7844 11.956M11.956 19.7844L12.7083 20.5368C13.3257 21.1541 14.3174 21.1541 14.9348 20.5368L15.6871 19.7844M4.2156 8.56415L3.46325 9.3165C2.84588 9.93387 2.84588 10.9256 3.46325 11.543L4.2156 12.2954M8.56415 4.2156L7.8118 3.46325C7.19443 2.84588 6.20267 2.84588 5.5853 3.46325L4.08061 4.96794C3.46324 5.58531 3.46324 6.57707 4.08061 7.19444L5.5853 8.69913" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
+                        
+                        // Fade in with animation
+                        setTimeout(() => {
+                            mediaEl.style.opacity = '1';
+                            mediaEl.classList.add('destination-enter');
+                            setTimeout(() => mediaEl.classList.remove('destination-enter'), 600);
+                        }, 50);
+                    }, 400);
+                };
+            
+                randomizeBtn.addEventListener('click', showRandomDestination);
+                
+                // Initialize with first random destination
+                showRandomDestination();
+            }
+            
+            document.addEventListener('DOMContentLoaded', function() {
+                initDestinationSelector();
+            });
+            </script>
+            
+            <!-- Upcoming Trips Section -->
+            <section class="sidebar-section">
+                <div class="section-header">
+                    <i class="fas fa-plane"></i>
+                    <h2>Upcoming Trips</h2>
+                    <button class="btn btn-icon" onclick="loadTrips()" title="Refresh trips">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                </div>
+                
+                <div class="trips-container">
+                    <!-- Trips will be loaded dynamically here -->
+                </div>
+                
+                <div class="empty-state" id="no-trips-message" style="display: none;">
+                    <i class="fas fa-suitcase"></i>
+                    <p>No upcoming trips planned yet.</p>
+                    <button class="btn btn-outline" onclick="document.getElementById('travel-location').focus()">
+                        <i class="fas fa-plus"></i> Plan a Trip
+                    </button>
+                </div>
+            </section>
+            <!-- Add this right after the Upcoming Trips section in the right column -->
+<section class="sidebar-section">
+    <div class="section-header">
+        <i class="fas fa-clock"></i>
+        <h2>Next Trip Countdown</h2>
+    </div>
+    
+    <div class="countdown-container" id="countdown-container" style="display: none;">
+        <div class="countdown-trip-info">
+            <h3 id="countdown-trip-name">Trip Name</h3>
+            <p id="countdown-trip-dates">Dates</p>
+        </div>
+        <div class="countdown-display">
+            <div class="countdown-item">
+                <span id="countdown-days">00</span>
+                <small>Days</small>
+            </div>
+            <div class="countdown-item">
+                <span id="countdown-hours">00</span>
+                <small>Hours</small>
+            </div>
+            <div class="countdown-item">
+                <span id="countdown-minutes">00</span>
+                <small>Minutes</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="empty-state" id="no-countdown-message">
+        <i class="fas fa-suitcase"></i>
+        <p>No upcoming trips to countdown to</p>
+    </div>
+</section>
+
+<style>
+    /* Countdown Styles */
+    .countdown-container {
+        text-align: center;
+        padding: 1rem;
+        background: rgba(160, 96, 77, 0.1);
+        border-radius: 10px;
+        margin-bottom: 1rem;
+    }
+
+    .countdown-trip-info {
+        margin-bottom: 1rem;
+    }
+
+    .countdown-trip-info h3 {
+        font-size: 1.1rem;
+        margin: 0 0 0.25rem 0;
+        color: var(--primary);
+    }
+
+    .countdown-trip-info p {
+        font-size: 0.9rem;
+        margin: 0;
+        color: var(--text-light);
+    }
+
+    .countdown-display {
+        display: flex;
+        justify-content: space-around;
+        margin-top: 1rem;
+    }
+
+    .countdown-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .countdown-item span {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: var(--primary);
+        line-height: 1;
+    }
+
+    .countdown-item small {
+        font-size: 0.7rem;
+        color: var(--text-light);
+        text-transform: uppercase;
+        margin-top: 0.25rem;
+    }
+</style>
+            <!-- Weather Updates Section -->
+            <section class="sidebar-section">
+                <div class="section-header">
+                    <i class="fas fa-cloud-sun"></i>
+                    <h2>Weather Updates</h2>
+                </div>
+                
+                <div class="weather-widget" id="weather-widget">
+                    <div class="weather-header">
+                        <h3>Loading weather...</h3>
+                    </div>
+                    <div class="weather-main">
+                        <i class="fas fa-cloud weather-icon" id="weather-main-icon"></i>
+                        <div class="weather-temp" id="weather-temp">--°C</div>
+                    </div>
+                    <div class="weather-details">
+                        <div class="weather-detail">
+                            <i class="fas fa-wind"></i>
+                            <span id="weather-wind">-- km/h</span>
+                        </div>
+                        <div class="weather-detail">
+                            <i class="fas fa-tint"></i>
+                            <span id="weather-humidity">--%</span>
+                        </div>
+                        <div class="weather-detail">
+                            <i class="fas fa-umbrella"></i>
+                            <span id="weather-rain">--%</span>
+                        </div>
+                    </div>
+                    <div class="forecast-container" id="weather-forecast">
+                        <!-- Forecast will be loaded here -->
+                    </div>
+                    <div id="weather-alerts">
+                        <!-- Alerts will be loaded here -->
+                    </div>
+                </div>
+            </section>
+            
+        </div>
+    </main>
+
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+    <script>
+        const API_BASE_URL = '{{ url_for("home") }}'.replace(/\/$/, '');
+        
+        // Get user's current location on page load
+        document.addEventListener("DOMContentLoaded", function() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    async function(position) {
+                        try {
+                            // First get city name from coordinates
+                            const geocodeResponse = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${position.coords.latitude}&longitude=${position.coords.longitude}&localityLanguage=en`);
+                            const geocodeData = await geocodeResponse.json();
+                            const location = `${geocodeData.city || geocodeData.locality}, ${geocodeData.countryCode}`;
+                            document.getElementById("current-location").textContent = location;
+                            
+                            // Then get weather for the location
+                            const weatherResponse = await fetch(`/api/weather?location=${encodeURIComponent(geocodeData.city || geocodeData.locality)}`);
+                            const weatherData = await weatherResponse.json();
+                            displayWeather(weatherData);
+                        } catch (error) {
+                            console.error("Error getting location or weather:", error);
+                            document.getElementById("current-location").textContent = "Unknown";
+                        }
+                    },
+                    function(error) {
+                        console.error("Error getting location:", error);
+                        document.getElementById("current-location").textContent = "Unknown";
+                    }
+                );
+            } else {
+                document.getElementById("current-location").textContent = "Location not supported";
+            }
+
+            // Load trips on initial page load
+            loadTrips();
+        });
+    </script>
+
+<!-- Chatbot Button -->
+<div class="chatbot-btn" id="chatbotBtn">
+    <i class="fas fa-comment-dots"></i>
+    <span class="notification-badge" id="chatbotNotification" style="display: none"></span>
+</div>
+
+<!-- Chatbot Container -->
+<div class="chatbot-container" id="chatbotContainer">
+    <div class="chatbot-header">
+        <div class="chatbot-header-content">
+            <div class="chatbot-avatar">
+                <i class="fas fa-robot"></i>
+            </div>
+            <div class="chatbot-header-text">
+                <h3>Voyager Assistant</h3>
+                <p>Ready to help with your travel plans</p>
+            </div>
+        </div>
+        <div class="chatbot-controls">
+            <button class="chatbot-btn-icon" id="closeChatbot">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
+    <div class="chatbot-messages" id="chatbotMessages">
+        <!-- Initial message -->
+        <div class="chatbot-message bot-message">
+            <div class="message-avatar">
+                <i class="fas fa-robot"></i>
+            </div>
+            <div class="message-content">
+                <p>Hi there! I'm your Voyager assistant. How can I help with your travel plans today?</p>
+                <div class="message-time">Just now</div>
+            </div>
+        </div>
+    </div>
+    <div class="chatbot-input-container">
+        <form id="chatbotForm">
+            <div class="chatbot-input-wrapper">
+                <input type="text" id="chatbotInput" class="chatbot-input" placeholder="Type your message..." autocomplete="off">
+                <button type="submit" class="chatbot-send-btn" id="sendChatbotMessage">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+    /* Enable dark mode styles via a class on <body class="dark-mode"> */
+        .dark-mode .content-section {
+  background-color: #1e1e1e !important; /* dark gray */
+  color: #f3f4f6 !important;
+}
+
+.dark-mode .section-header h2,
+.dark-mode .section-header i {
+  color: #f3f4f6 !important;
+}
+
+/* Form Inputs */
+.dark-mode .form-container input[type="text"],
+.dark-mode .form-container input[type="date"],
+.dark-mode .form-container select {
+  background-color: #2a2a2a !important; /* slightly lighter field */
+  color: #ffffff !important;
+  border-color: #3a3a3a !important;
+}
+
+.dark-mode .form-container input::placeholder {
+  color: #999999 !important;
+}
+
+.dark-mode .form-container input:focus {
+  border-color: #a0522d !important;
+}
+
+/* Trip Type */
+.dark-mode .trip-type-section {
+  background-color: #2a2a2a !important;
+  border-color: #3a3a3a !important;
+  color: #e5e7eb !important;
+}
+
+.dark-mode .trip-type-options label {
+  background-color: #333333 !important;
+  color: #dddddd !important;
+  border-color: #444444 !important;
+}
+
+/* Budget Section */
+.dark-mode .budget-section label {
+  color: #e5e7eb !important;
+}
+
+.dark-mode .range-slider input[type="range"] {
+  background-color: #3a3a3a !important;
+}
+
+.dark-mode .range-slider input[type="range"]::-webkit-slider-thumb,
+.dark-mode .range-slider input[type="range"]::-moz-range-thumb {
+  background: #a0522d !important;
+}
+
+/* Upcoming Trips */
+.dark-mode .sidebar-section {
+  background-color: #1e1e1e !important;
+  color: #f3f4f6 !important;
+  border-color: #333333 !important;
+}
+
+.dark-mode .sidebar-section .section-header h2,
+.dark-mode .sidebar-section .section-header i {
+  color: #ffffff !important;
+}
+
+.dark-mode .sidebar-section .trips-container p {
+  color: #cccccc !important;
+}
+
+
+</style>
+<script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
+<script src="{{ url_for('static', filename='js/packing-lists.js') }}"></script>
+</body>
+</html>
