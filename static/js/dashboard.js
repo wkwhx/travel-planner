@@ -1605,9 +1605,14 @@ function processItineraryContent(itineraryText) {
     const hotelRecommendationsContent = document.getElementById('hotel-recommendations-content');
     if (hotelRecommendations) {
         const renderedContent = isHtml ? hotelRecommendations : md.render(hotelRecommendations);
+        // Add a class to highlight proximity information
+        const enhancedContent = renderedContent.replace(
+            /(nearby|close to|distance|walking distance|proximity)/gi, 
+            '<span class="proximity-highlight">$1</span>'
+        );
         hotelRecommendationsContent.innerHTML = `
             <div class="hotel-recommendations-container">
-                ${renderedContent}
+                ${enhancedContent}
             </div>
         `;
     } else {

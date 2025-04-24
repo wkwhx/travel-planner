@@ -519,8 +519,11 @@ Provide 3 hotel recommendations in different price ranges (budget, mid-range, lu
 - Property name and star rating
 - Approximate nightly rates
 - Key amenities
-- Location advantages
+- Location advantages (specifically mention proximity to the activities in the daily itinerary)
 - Booking tips
+
+IMPORTANT: Choose hotels that are centrally located near the main activities mentioned in the daily itinerary. 
+For each hotel, specify which activities/attractions are nearby and the approximate walking distance or transit time.
 
 ### Daily Itinerary
 For each day from {data.get('startDate')} to {data.get('endDate')}, include:
@@ -530,14 +533,15 @@ For each day from {data.get('startDate')} to {data.get('endDate')}, include:
 - Activity 2 (specific time, location, duration)
 
 **Afternoon:**
-- Lunch recommendation (restaurant name, cuisine)
+- Lunch recommendation (restaurant name, cuisine, location near activities)
 - Activity 3 (specific time, location, duration)
 
 **Evening:**
-- Dinner recommendation (restaurant name, cuisine)
+- Dinner recommendation (restaurant name, cuisine, location near activities)
 - Activity 4 (specific time, location, duration)
 
 Include transportation details between locations and estimated costs for each activity.
+When listing locations, include neighborhood/district names to help with hotel selection.
 
 ### Additional Tips
 - Local customs/etiquette
@@ -555,6 +559,7 @@ Make sure the response is in clean markdown format with clear section headers.
 Each day should have at least 3 activities with specific details."""
     
         result = ask_gemini(prompt)
+        # ... rest of your function ...
     
         # Clean up the response
         clean_result = result.strip()

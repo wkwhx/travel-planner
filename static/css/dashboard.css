@@ -3127,3 +3127,15 @@ th {
 }
 
 /*EXTRAAAAAAAAAAA*/
+.proximity-highlight {
+    background-color: #fff8e1;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-weight: bold;
+    color: #ff8f00;
+}
+
+body.dark-mode .proximity-highlight {
+    background-color: #5d4037;
+    color: #ffcc80;
+}
