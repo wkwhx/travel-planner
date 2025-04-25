@@ -203,6 +203,37 @@ async function fetchWeather(location) {
     }
 }
 
+async function loadActivities(destination) {
+    try {
+        const response = await fetch('/api/get-activities', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                destination: destination
+            })
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `Failed to load activities (HTTP ${response.status})`);
+        }
+        
+        const data = await response.json();
+        
+        // Check if we got activities
+        if (!data.activities || data.activities.length === 0) {
+            throw new Error('No activities found for this destination. Try being more specific.');
+        }
+        
+        return data.activities;
+    } catch (error) {
+        console.error('Error loading activities:', error);
+        throw error;
+    }
+}
+
 async function fetchItinerary() {
     const fromLocation = document.querySelector('.form-container input[placeholder="From (e.g., New York, USA)"]').value.trim();
     const location = document.querySelector('.form-container input[placeholder="To (e.g., Paris, France)"]').value.trim();
@@ -216,6 +247,13 @@ async function fetchItinerary() {
     const maxBudget = document.getElementById('budget-max-slider').value;
     const startDate = document.querySelector('.form-container input[type="date"][placeholder="Start date"]').value;
     const endDate = document.querySelector('.form-container input[type="date"][placeholder="End date"]').value;
+    
+    // Get selected activities (names instead of IDs)
+    const selectedActivities = Array.from(document.querySelectorAll('#activities-list input[type="checkbox"]:checked'))
+                            .map(checkbox => {
+                                const item = checkbox.closest('.activity-item');
+                                return item.querySelector('.activity-name').textContent;
+                            });
     
     if (!location) {
         alert("Please enter a destination for your trip!");
@@ -243,7 +281,8 @@ async function fetchItinerary() {
                 maxBudget: maxBudget,
                 startDate: startDate,
                 endDate: endDate,
-                tripType: tripTypes
+                tripType: tripTypes,
+                selectedActivities: selectedActivities
             })
         });
         
@@ -276,6 +315,8 @@ async function fetchItinerary() {
                 <button class="btn" onclick="fetchItinerary()">Try Again</button>
             </div>
         `;
+        // Don't proceed to displayItinerary if there's an error
+        return;
     } finally {
         if (loadingContainer) loadingContainer.style.display = "none";
     }
@@ -385,6 +426,108 @@ function downloadItineraryPDF() {
         autoPaging: 'text'
     });
 }
+
+// Move this function outside of any other scopes
+function displayActivities(activities) {
+    const container = document.getElementById('activities-list');
+    container.innerHTML = '';
+    
+    // Group activities by category
+    const categories = {};
+    activities.forEach(activity => {
+        if (!categories[activity.category]) {
+            categories[activity.category] = [];
+        }
+        categories[activity.category].push(activity);
+    });
+    
+    // Create sections for each category
+    for (const [category, items] of Object.entries(categories)) {
+        const categorySection = document.createElement('div');
+        categorySection.className = 'activity-category';
+        
+        const categoryHeader = document.createElement('h4');
+        categoryHeader.textContent = category;
+        categorySection.appendChild(categoryHeader);
+        
+        const list = document.createElement('div');
+        list.className = 'activity-list';
+        
+        items.forEach(activity => {
+            const item = document.createElement('div');
+            item.className = 'activity-item';
+            
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.id = `activity-${activity.id}`;
+            checkbox.value = activity.id;
+            
+            const label = document.createElement('label');
+            label.htmlFor = `activity-${activity.id}`;
+            
+            const details = document.createElement('div');
+            details.className = 'activity-details';
+            
+            const name = document.createElement('div');
+            name.className = 'activity-name';
+            name.textContent = activity.name;
+            
+            const desc = document.createElement('div');
+            desc.className = 'activity-description';
+            desc.textContent = activity.description;
+            
+            const meta = document.createElement('div');
+            meta.className = 'activity-meta';
+            meta.innerHTML = `
+                <span><i class="fas fa-clock"></i> ${activity.duration}</span>
+                <span><i class="fas fa-dollar-sign"></i> ${activity.price}</span>
+                <span><i class="fas fa-map-marker-alt"></i> ${activity.location}</span>
+            `;
+            
+            details.appendChild(name);
+            details.appendChild(desc);
+            details.appendChild(meta);
+            
+            label.appendChild(checkbox);
+            label.appendChild(details);
+            item.appendChild(label);
+            list.appendChild(item);
+        });
+        
+        categorySection.appendChild(list);
+        container.appendChild(categorySection);
+    }
+}
+
+// Then keep your existing event listener for the button
+document.getElementById('show-activities-btn')?.addEventListener('click', async function() {
+    const toLocation = document.querySelector('.form-container input[type="text"]:nth-of-type(2)').value;
+    
+    if (!toLocation) {
+        alert('Please enter a destination');
+        return;
+    }
+    
+    // Show loading screen
+    document.getElementById('activities-loading').style.display = 'block';
+    document.getElementById('show-activities-btn').disabled = true;
+    
+    try {
+        const activities = await loadActivities(toLocation);
+        displayActivities(activities);
+        
+        // Hide loading, show activities container
+        document.getElementById('activities-loading').style.display = 'none';
+        document.getElementById('activities-container').style.display = 'block';
+        document.getElementById('generate-itinerary-btn').style.display = 'block';
+        
+    } catch (error) {
+        console.error('Error fetching activities:', error);
+        document.getElementById('activities-loading').style.display = 'none';
+        alert(`Failed to load activities: ${error.message}`);
+        document.getElementById('show-activities-btn').disabled = false;
+    }
+});
 
 function displayWeather(data) {
     const weatherWidget = document.getElementById("weather-widget");
@@ -1300,7 +1443,155 @@ function updateCountdown() {
         });
 }
 
-/*undo if needed*/
+document.addEventListener('DOMContentLoaded', function() {
+   
+    // Event listener for Generate Itinerary button
+    document.getElementById('generate-itinerary-btn').addEventListener('click', async function() {
+        const fromLocation = document.querySelector('.form-container input[type="text"]:first-of-type').value;
+        const toLocation = document.querySelector('.form-container input[type="text"]:nth-of-type(2)').value;
+        const startDate = document.querySelector('.form-container input[type="date"]:first-of-type').value;
+        const endDate = document.querySelector('.form-container input[type="date"]:nth-of-type(2)').value;
+        const description = document.querySelector('.trip-description').value;
+        const tripType = Array.from(document.querySelectorAll('.trip-type-options input[type="checkbox"]:checked'))
+                            .map(el => el.value).join(', ');
+        const minBudget = document.getElementById('budget-min').textContent;
+        const maxBudget = document.getElementById('budget-max').textContent;
+        
+        // Get selected activities
+        const selectedActivities = Array.from(document.querySelectorAll('#activities-list input[type="checkbox"]:checked'))
+                                    .map(el => el.value);
+        
+        if (selectedActivities.length === 0) {
+            alert('Please select at least one activity');
+            return;
+        }
+        
+        // Show itinerary loading screen
+        document.getElementById('itinerary-loading').style.display = 'block';
+        document.getElementById('generate-itinerary-btn').disabled = true;
+        
+        try {
+            // Generate itinerary with selected activities
+            const response = await fetch('/api/itinerary', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    fromLocation,
+                    toLocation,
+                    startDate,
+                    endDate,
+                    description,
+                    tripType,
+                    minBudget,
+                    maxBudget,
+                    selectedActivities
+                })
+            });
+            
+            const itinerary = await response.json();
+            
+            // Display itinerary
+            displayItinerary(itinerary);
+            
+        } catch (error) {
+            console.error('Error generating itinerary:', error);
+        } finally {
+            document.getElementById('itinerary-loading').style.display = 'none';
+            document.getElementById('generate-itinerary-btn').disabled = false;
+        }
+    });
+});
+
+// Move this outside of any DOMContentLoaded event listener
+
+// Update your fetchItinerary function
+async function fetchItinerary() {
+    const fromLocation = document.querySelector('.form-container input[placeholder="From (e.g., New York, USA)"]').value.trim();
+    const location = document.querySelector('.form-container input[placeholder="To (e.g., Paris, France)"]').value.trim();
+    const description = document.querySelector('.trip-description').value.trim();
+    
+    // Get checked trip types
+    const tripTypeElements = document.querySelectorAll('.trip-type-options input[type="checkbox"]:checked');
+    const tripTypes = Array.from(tripTypeElements).map(el => el.value).join(', ');
+    
+    const minBudget = document.getElementById('budget-min-slider').value;
+    const maxBudget = document.getElementById('budget-max-slider').value;
+    const startDate = document.querySelector('.form-container input[type="date"][placeholder="Start date"]').value;
+    const endDate = document.querySelector('.form-container input[type="date"][placeholder="End date"]').value;
+    
+    // Get selected activities (names instead of IDs)
+    const selectedActivities = Array.from(document.querySelectorAll('#activities-list input[type="checkbox"]:checked'))
+                            .map(checkbox => {
+                                const item = checkbox.closest('.activity-item');
+                                return item.querySelector('.activity-name').textContent;
+                            });
+    
+    if (!location) {
+        alert("Please enter a destination for your trip!");
+        return;
+    }
+
+    // Show loading screen
+    const itineraryContainer = document.getElementById("itinerary-container");
+    const loadingContainer = document.getElementById("itinerary-loading");
+    
+    if (loadingContainer) loadingContainer.style.display = "flex";
+    itineraryContainer.innerHTML = '';
+
+    try {
+        const response = await fetch('/api/itinerary', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                fromLocation: fromLocation,
+                toLocation: location,
+                description: description,
+                minBudget: minBudget,
+                maxBudget: maxBudget,
+                startDate: startDate,
+                endDate: endDate,
+                tripType: tripTypes,
+                selectedActivities: selectedActivities
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to generate itinerary');
+        }
+        
+        const data = await response.json();
+        
+        currentItineraryData = {
+            fromLocation: fromLocation,
+            location: location,
+            description: description,
+            tripType: tripTypes,
+            budget: `${minBudget}-${maxBudget}`,
+            startDate: startDate,
+            endDate: endDate,
+            itinerary: data.itinerary
+        };
+        
+        displayItinerary(data.itinerary);
+        
+    } catch (error) {
+        console.error("Error generating itinerary:", error);
+        itineraryContainer.innerHTML = `
+            <div class="error-message">
+                <i class="fas fa-exclamation-triangle"></i>
+                <h4>Itinerary Error</h4>
+                <p>${error.message}</p>
+                <button class="btn" onclick="fetchItinerary()">Try Again</button>
+            </div>
+        `;
+    } finally {
+        if (loadingContainer) loadingContainer.style.display = "none";
+    }
+}// Move this outside of any DOMContentLoaded event listener
 function displayItinerary(itineraryText) {
     const itineraryContainer = document.getElementById("itinerary-container");
     
@@ -1402,6 +1693,93 @@ function displayItinerary(itineraryText) {
     processItineraryContent(itineraryText);
     fetchWeather(currentItineraryData.location);
     itineraryContainer.scrollIntoView({ behavior: 'smooth' });
+}
+
+// Update your fetchItinerary function
+async function fetchItinerary() {
+    const fromLocation = document.querySelector('.form-container input[placeholder="From (e.g., New York, USA)"]').value.trim();
+    const location = document.querySelector('.form-container input[placeholder="To (e.g., Paris, France)"]').value.trim();
+    const description = document.querySelector('.trip-description').value.trim();
+    
+    // Get checked trip types
+    const tripTypeElements = document.querySelectorAll('.trip-type-options input[type="checkbox"]:checked');
+    const tripTypes = Array.from(tripTypeElements).map(el => el.value).join(', ');
+    
+    const minBudget = document.getElementById('budget-min-slider').value;
+    const maxBudget = document.getElementById('budget-max-slider').value;
+    const startDate = document.querySelector('.form-container input[type="date"][placeholder="Start date"]').value;
+    const endDate = document.querySelector('.form-container input[type="date"][placeholder="End date"]').value;
+    
+    // Get selected activities (names instead of IDs)
+    const selectedActivities = Array.from(document.querySelectorAll('#activities-list input[type="checkbox"]:checked'))
+                            .map(checkbox => {
+                                const item = checkbox.closest('.activity-item');
+                                return item.querySelector('.activity-name').textContent;
+                            });
+    
+    if (!location) {
+        alert("Please enter a destination for your trip!");
+        return;
+    }
+
+    // Show loading screen
+    const itineraryContainer = document.getElementById("itinerary-container");
+    const loadingContainer = document.getElementById("itinerary-loading");
+    
+    if (loadingContainer) loadingContainer.style.display = "flex";
+    itineraryContainer.innerHTML = '';
+
+    try {
+        const response = await fetch('/api/itinerary', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                fromLocation: fromLocation,
+                toLocation: location,
+                description: description,
+                minBudget: minBudget,
+                maxBudget: maxBudget,
+                startDate: startDate,
+                endDate: endDate,
+                tripType: tripTypes,
+                selectedActivities: selectedActivities
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to generate itinerary');
+        }
+        
+        const data = await response.json();
+        
+        currentItineraryData = {
+            fromLocation: fromLocation,
+            location: location,
+            description: description,
+            tripType: tripTypes,
+            budget: `${minBudget}-${maxBudget}`,
+            startDate: startDate,
+            endDate: endDate,
+            itinerary: data.itinerary
+        };
+        
+        displayItinerary(data.itinerary);
+        
+    } catch (error) {
+        console.error("Error generating itinerary:", error);
+        itineraryContainer.innerHTML = `
+            <div class="error-message">
+                <i class="fas fa-exclamation-triangle"></i>
+                <h4>Itinerary Error</h4>
+                <p>${error.message}</p>
+                <button class="btn" onclick="fetchItinerary()">Try Again</button>
+            </div>
+        `;
+    } finally {
+        if (loadingContainer) loadingContainer.style.display = "none";
+    }
 }
 
 async function viewItinerary(tripId) {
@@ -1524,128 +1902,44 @@ async function viewItinerary(tripId) {
 function processItineraryContent(itineraryText) {
     const md = window.markdownit();
     
-    // Determine if content is HTML or markdown
-    const isHtml = itineraryText.includes('<') && 
-                  (itineraryText.includes('</') || itineraryText.includes('/>'));
-    
-    // Extract sections based on headers or HTML structure
+    // First try to extract sections from the markdown
     let flightDetails = extractSection(itineraryText, 'Flight Details') || '';
-    let hotelRecommendations = extractSection(itineraryText, 'Hotel Recommendations') || '';
+    let hotelRecommendations = extractSection(itineraryText, 'Hotel Recommendations') || 
+                             extractSection(itineraryText, 'Accommodation') || '';
     let dailyItinerary = extractDailyItinerary(itineraryText);
     let additionalTips = extractSection(itineraryText, 'Additional Tips') || '';
     
-    // If no specific sections were found, try to infer the structure
+    // If no sections found, try to parse the entire text as daily itinerary
     if (!flightDetails && !hotelRecommendations && !dailyItinerary.days.length && !additionalTips) {
-        // Try to extract flight information based on keywords
-        const flightRegex = /(?:flight|airline|departure|arrival|terminal|booking|reference)/i;
-        const hotelRegex = /(?:hotel|accommodation|stay|lodge|resort|room)/i;
-        const tipsRegex = /(?:tips|advice|suggestions|recommendation|note|important)/i;
-        
-        const paragraphs = itineraryText.split('\n\n');
-        
-        paragraphs.forEach(para => {
-            if (flightRegex.test(para) && !flightDetails) {
-                flightDetails = para;
-            } else if (hotelRegex.test(para) && !hotelRecommendations) {
-                hotelRecommendations = para;
-            } else if (tipsRegex.test(para) && !additionalTips) {
-                additionalTips = para;
-            }
-        });
-        
-        // If still no daily itinerary, try to extract days
-        if (dailyItinerary.days.length === 0) {
-            // Look for day patterns in the text
-            const dayPattern = /day\s+\d+|day\s*[:-]/gi;
-            if (dayPattern.test(itineraryText)) {
-                dailyItinerary = extractDailyItineraryByPattern(itineraryText);
-            }
-        }
+        dailyItinerary = extractDailyItineraryByPattern(itineraryText);
     }
     
     // Populate flight details section
     const flightDetailsContent = document.getElementById('flight-details-content');
-    if (flightDetails) {
-        // Check if it contains a table
-        if (flightDetails.includes('|')) {
-            const renderedContent = isHtml ? flightDetails : md.render(flightDetails);
-            // Add table class based on column count
-            const tableMatch = renderedContent.match(/<table/g);
-            if (tableMatch) {
-                // Count columns in the first row to determine table class
-                const firstRowMatch = flightDetails.match(/(?:\|.*?\|)+/);
-                if (firstRowMatch) {
-                    const columnCount = firstRowMatch[0].split('|').length - 1;
-                    flightDetailsContent.innerHTML = renderedContent
-                        .replace(/<table/g, `<table class="cols-${columnCount}"`);
-                } else {
-                    flightDetailsContent.innerHTML = renderedContent;
-                }
-            } else {
-                flightDetailsContent.innerHTML = renderedContent;
-            }
-        } else {
-            // If no table, create one from the text
-            const renderedContent = isHtml ? flightDetails : md.render(flightDetails);
-            flightDetailsContent.innerHTML = `
-                <div class="flight-details-container">
-                    ${renderedContent}
-                </div>
-            `;
-        }
-    } else {
-        flightDetailsContent.innerHTML = `
-            <div class="no-content-message">
-                <i class="fas fa-info-circle"></i>
-                <p>No flight details available for this itinerary.</p>
-            </div>
-        `;
-    }
+    flightDetailsContent.innerHTML = flightDetails ? md.render(flightDetails) : `
+        <div class="no-content-message">
+            <i class="fas fa-info-circle"></i>
+            <p>No flight details available for this itinerary.</p>
+        </div>
+    `;
     
+    // Populate hotel recommendations section
     const hotelRecommendationsContent = document.getElementById('hotel-recommendations-content');
-    if (hotelRecommendations) {
-        const renderedContent = isHtml ? hotelRecommendations : md.render(hotelRecommendations);
-        // Add a class to highlight proximity information
-        const enhancedContent = renderedContent.replace(
-            /(nearby|close to|distance|walking distance|proximity)/gi, 
-            '<span class="proximity-highlight">$1</span>'
-        );
-        hotelRecommendationsContent.innerHTML = `
-            <div class="hotel-recommendations-container">
-                ${enhancedContent}
-            </div>
-        `;
-    } else {
-        // Try to extract any accommodation information if no specific hotel section found
-        const accommodationInfo = extractSection(itineraryText, 'Accommodation') || 
-                                extractSection(itineraryText, 'Where to Stay') ||
-                                findAccommodationInfo(itineraryText);
-        
-        if (accommodationInfo) {
-            const renderedContent = isHtml ? accommodationInfo : md.render(accommodationInfo);
-            hotelRecommendationsContent.innerHTML = `
-                <div class="hotel-recommendations-container">
-                    ${renderedContent}
-                </div>
-            `;
-        } else {
-            hotelRecommendationsContent.innerHTML = `
-            <div class="no-content-message">
-                <i class="fas fa-info-circle"></i>
-                <p>No hotel recommendations available for this itinerary.</p>
-            </div>
-        `;
-    }
-}
+    hotelRecommendationsContent.innerHTML = hotelRecommendations ? md.render(hotelRecommendations) : `
+        <div class="no-content-message">
+            <i class="fas fa-info-circle"></i>
+            <p>No hotel recommendations available for this itinerary.</p>
+        </div>
+    `;
     
     // Populate daily itinerary section
     const daysTabsContainer = document.getElementById('itinerary-days-tabs');
     const daysContentContainer = document.getElementById('itinerary-days-content');
     
+    daysTabsContainer.innerHTML = '';
+    daysContentContainer.innerHTML = '';
+    
     if (dailyItinerary.days.length > 0) {
-        daysTabsContainer.innerHTML = '';
-        daysContentContainer.innerHTML = '';
-        
         dailyItinerary.days.forEach((day, index) => {
             // Create tab
             const tab = document.createElement('li');
@@ -1659,7 +1953,7 @@ function processItineraryContent(itineraryText) {
             content.id = `day-${index}`;
             content.className = `itinerary-day ${index === 0 ? 'active' : ''}`;
             
-            const dayContent = isHtml ? day.content : md.render(day.content);
+            const dayContent = md.render(day.content);
             content.innerHTML = `
                 <h5>${day.title || `Day ${day.dayNumber}`}</h5>
                 <div class="day-content">
@@ -1670,26 +1964,21 @@ function processItineraryContent(itineraryText) {
             daysContentContainer.appendChild(content);
         });
     } else {
-        daysContentContainer.innerHTML = `
-            <div class="no-content-message">
-                <i class="fas fa-info-circle"></i>
-                <p>No daily itinerary details available.</p>
-            </div>
-        `;
+        // If no daily itinerary found, show the entire content as fallback
+        const content = document.createElement('div');
+        content.className = 'itinerary-day active';
+        content.innerHTML = md.render(itineraryText);
+        daysContentContainer.appendChild(content);
     }
     
     // Populate additional tips section
     const additionalTipsContent = document.getElementById('additional-tips-content');
-    if (additionalTips) {
-        additionalTipsContent.innerHTML = isHtml ? additionalTips : md.render(additionalTips);
-    } else {
-        additionalTipsContent.innerHTML = `
-            <div class="no-content-message">
-                <i class="fas fa-info-circle"></i>
-                <p>No additional tips available for this itinerary.</p>
-            </div>
-        `;
-    }
+    additionalTipsContent.innerHTML = additionalTips ? md.render(additionalTips) : `
+        <div class="no-content-message">
+            <i class="fas fa-info-circle"></i>
+            <p>No additional tips available for this itinerary.</p>
+        </div>
+    `;
     
     // Expand all sections by default
     ['flight-details', 'hotel-recommendations', 'daily-itinerary', 'additional-tips'].forEach(
@@ -2131,3 +2420,4 @@ document.addEventListener('DOMContentLoaded', function() {
     
     document.head.appendChild(styleElement);
 });
+

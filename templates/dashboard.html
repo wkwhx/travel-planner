@@ -263,10 +263,137 @@
                   }
                 </style>                      
 <div class="action-buttons" style="margin-top: 1.5rem;">
-    <button type="button" class="btn btn-primary" id="generate-itinerary-btn">
-        <i class="fas fa-map-marked-alt"></i> Generate Itinerary
+    <button type="button" class="btn btn-primary" id="show-activities-btn">
+        <i class="fas fa-list-ul"></i> Show Available Activities
     </button> 
 </div>
+
+<!-- Activities Loading Container -->
+<div class="loading-container" id="activities-loading" style="display: none; margin: 1rem auto;">
+    <div class="loading-content">
+        <div class="loading-spinner">
+            <div class="spinner-circle"></div>
+        </div>
+        <h2 class="loading-text">Loading Activities...</h2>
+        <p class="loading-subtext">Finding the best things to do at your destination</p>
+        <div class="progress-dots">
+            <div class="dot"></div>
+            <div class="dot"></div>
+            <div class="dot"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Activities Selection Container -->
+<div id="activities-container" style="display: none; margin-top: 1.5rem;">
+    <h3>Select Activities for Your Itinerary</h3>
+    <div id="activities-list">
+        <!-- Activities will be loaded here -->
+    </div>
+    
+    <div class="action-buttons" style="margin-top: 1.5rem;">
+        <button type="button" class="btn btn-primary" id="generate-itinerary-btn" style="display: none;">
+            <i class="fas fa-map-marked-alt"></i> Generate Itinerary
+        </button> 
+    </div>
+</div>
+<style>
+    /* Activities Styles */
+#activities-container {
+    background-color: #f9fafb;
+    padding: 1.5rem;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+}
+
+.activity-category {
+    margin-bottom: 1.5rem;
+}
+
+.activity-category h4 {
+    color: #a0522d;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.activity-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1rem;
+}
+
+.activity-item {
+    background: white;
+    border-radius: 8px;
+    padding: 1rem;
+    border: 1px solid #e5e7eb;
+    transition: all 0.2s ease;
+}
+
+.activity-item:hover {
+    border-color: #a0522d;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.activity-item input[type="checkbox"] {
+    margin-right: 1rem;
+    accent-color: #a0522d;
+}
+
+.activity-details {
+    display: inline-block;
+    vertical-align: middle;
+    width: calc(100% - 2rem);
+}
+
+.activity-name {
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.activity-description {
+    font-size: 0.9rem;
+    color: #6b7280;
+    margin-bottom: 0.5rem;
+}
+
+.activity-meta {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.8rem;
+    color: #6b7280;
+}
+
+.activity-meta span {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+/* Dark mode adjustments */
+.dark-mode #activities-container {
+    background-color: #2a2a2a;
+    border-color: #3a3a3a;
+}
+
+.dark-mode .activity-category h4 {
+    color: #d4a373;
+    border-color: #3a3a3a;
+}
+
+.dark-mode .activity-item {
+    background-color: #333333;
+    border-color: #444444;
+    color: #e5e7eb;
+}
+
+.dark-mode .activity-description,
+.dark-mode .activity-meta {
+    color: #cccccc;
+}
+</style>
+
 <div class="loading-container" id="itinerary-loading" style="display: none; margin: 1rem auto;">
     <div class="loading-content">
         <div class="loading-spinner">

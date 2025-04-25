@@ -503,11 +503,97 @@ def dashboard():
         
     return render_template('dashboard.html', user=user)
 
+
+@app.route('/api/get-activities', methods=['POST'])
+def get_activities():
+    try:
+        data = request.json
+        destination = data.get('destination')
+        
+        if not destination:
+            return jsonify({'error': 'Destination is required', 'activities': []}), 400
+        
+        prompt = f"""Provide a comprehensive list of activities for {destination} grouped by category. 
+        For each activity, include:
+        - Name
+        - Description (1-2 sentences)
+        - Duration (e.g., "2-3 hours")
+        - Price range (e.g., "$20-50" or "Free")
+        - Location/area
+        - Category
+        
+        Return the data in a strict JSON format with this structure:
+        {{
+            "activities": [
+                {{
+                    "id": 1,
+                    "name": "Activity Name",
+                    "description": "Brief description",
+                    "duration": "Duration info",
+                    "price": "Price info",
+                    "location": "Area/neighborhood",
+                    "category": "Category Name"
+                }}
+            ]
+        }}
+        Return ONLY the JSON object, no additional text or markdown."""
+        
+        response = ask_gemini(prompt)
+        
+        # More robust response cleaning
+        clean_response = response.strip()
+        if clean_response.startswith('```json'):
+            clean_response = clean_response[7:]
+        if clean_response.endswith('```'):
+            clean_response = clean_response[:-3]
+        clean_response = clean_response.strip()
+        
+        try:
+            activities_data = json.loads(clean_response)
+            # Ensure we have the expected structure
+            if not isinstance(activities_data, dict):
+                activities_data = {'activities': []}
+            if 'activities' not in activities_data:
+                activities_data['activities'] = []
+                
+            # Validate each activity has required fields
+            valid_activities = []
+            for activity in activities_data.get('activities', []):
+                if all(key in activity for key in ['name', 'description', 'category']):
+                    valid_activities.append({
+                        'id': activity.get('id', random.randint(1000, 9999)),
+                        'name': activity['name'],
+                        'description': activity['description'],
+                        'duration': activity.get('duration', 'Not specified'),
+                        'price': activity.get('price', 'Not specified'),
+                        'location': activity.get('location', 'Not specified'),
+                        'category': activity['category']
+                    })
+                    
+            return jsonify({'activities': valid_activities})
+            
+        except json.JSONDecodeError as e:
+            print(f"Failed to parse Gemini response: {e}\nResponse was: {clean_response}")
+            return jsonify({
+                'error': 'Failed to parse activities data',
+                'activities': []
+            }), 500
+            
+    except Exception as e:
+        print(f"Error in get_activities: {str(e)}")
+        return jsonify({
+            'error': 'Server error while fetching activities',
+            'activities': []
+        }), 500
+ 
 @app.route('/api/itinerary', methods=['POST'])
 def itinerary2():
     try:
         data = request.json
-        prompt=f"""Create a detailed travel itinerary with exactly these 4 sections:
+        selected_activities = data.get('selectedActivities', [])
+        
+        # Modify the prompt to include selected activities
+        prompt = f"""Create a detailed travel itinerary with exactly these 4 sections:
 ### Flight Details
 Create a markdown table with these columns:
 | Airline | Flight Number | Departure Time | Arrival Time | Estimated Cost (USD) | Travel Time | Baggage Policy |
@@ -528,20 +614,14 @@ For each hotel, specify which activities/attractions are nearby and the approxim
 ### Daily Itinerary
 For each day from {data.get('startDate')} to {data.get('endDate')}, include:
 #### Day X: [Title]
-**Morning:**
-- Activity 1 (specific time, location, duration)
-- Activity 2 (specific time, location, duration)
+SPECIFICALLY INCLUDE THESE SELECTED ACTIVITIES:
+{', '.join(selected_activities)}
 
-**Afternoon:**
-- Lunch recommendation (restaurant name, cuisine, location near activities)
-- Activity 3 (specific time, location, duration)
-
-**Evening:**
-- Dinner recommendation (restaurant name, cuisine, location near activities)
-- Activity 4 (specific time, location, duration)
-
-Include transportation details between locations and estimated costs for each activity.
-When listing locations, include neighborhood/district names to help with hotel selection.
+When planning each day:
+1. Group activities by proximity to minimize travel time
+2. Include transportation details between locations
+3. Allow for meal times and rest periods
+4. Balance intense activities with more relaxed ones
 
 ### Additional Tips
 - Local customs/etiquette
