@@ -427,7 +427,6 @@ function downloadItineraryPDF() {
     });
 }
 
-// Move this function outside of any other scopes
 function displayActivities(activities) {
     const container = document.getElementById('activities-container');
     
@@ -467,7 +466,6 @@ function displayActivities(activities) {
     
     const listContainer = document.getElementById('activities-list');
     
-    // Rest of your existing displayActivities code...
     // Group activities by category
     const categories = {};
     activities.forEach(activity => {
@@ -504,6 +502,29 @@ function displayActivities(activities) {
             const details = document.createElement('div');
             details.className = 'activity-details';
             
+            // Add image container if image_url exists
+            if (activity.image_url) {
+                const imageContainer = document.createElement('div');
+                imageContainer.className = 'activity-image';
+                const img = document.createElement('img');
+                img.src = activity.image_url;
+                img.alt = activity.name;
+                img.loading = 'lazy'; // For lazy loading
+                imageContainer.appendChild(img);
+                details.appendChild(imageContainer);
+            } else {
+                // Fallback icon if no image
+                const iconContainer = document.createElement('div');
+                iconContainer.className = 'activity-icon';
+                const icon = document.createElement('i');
+                icon.className = 'fas fa-map-marker-alt';
+                iconContainer.appendChild(icon);
+                details.appendChild(iconContainer);
+            }
+            
+            const textContainer = document.createElement('div');
+            textContainer.className = 'activity-text';
+            
             const name = document.createElement('div');
             name.className = 'activity-name';
             name.textContent = activity.name;
@@ -520,9 +541,10 @@ function displayActivities(activities) {
                 <span><i class="fas fa-map-marker-alt"></i> ${activity.location}</span>
             `;
             
-            details.appendChild(name);
-            details.appendChild(desc);
-            details.appendChild(meta);
+            textContainer.appendChild(name);
+            textContainer.appendChild(desc);
+            textContainer.appendChild(meta);
+            details.appendChild(textContainer);
             
             label.appendChild(checkbox);
             label.appendChild(details);

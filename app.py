@@ -5,6 +5,7 @@ import google.generativeai as genai2
 import json
 import re
 import random
+import requests 
 import pymysql
 from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -134,6 +135,27 @@ def ask_gemini(prompt):
     response = model.generate_content(prompt)
     print(response.text)
     return response.text
+
+def get_pexels_image_url(query):
+    try:
+        PEXELS_API_KEY = os.getenv('PEXELS_API_KEY')
+        if not PEXELS_API_KEY:
+            print("Pexels API key not found")
+            return None
+            
+        url = f"https://api.pexels.com/v1/search?query={query}&per_page=1"
+        headers = {"Authorization": PEXELS_API_KEY}
+        response = requests.get(url, headers=headers, timeout=5)
+        
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('photos') and len(data['photos']) > 0:
+                return data['photos'][0]['src']['medium']  # or 'small', 'large', etc.
+        else:
+            print(f"Pexels API error: {response.status_code} - {response.text}")
+    except Exception as e:
+        print(f"Error fetching Pexels image: {e}")
+    return None
 
 # User functions
 def create_user(username, email, password):
@@ -503,7 +525,6 @@ def dashboard():
         
     return render_template('dashboard.html', user=user)
 
-
 @app.route('/api/get-activities', methods=['POST'])
 def get_activities():
     try:
@@ -521,6 +542,7 @@ def get_activities():
         - Price range (e.g., "$20-50" or "Free")
         - Location/area
         - Category
+        - Image search query (specific phrase to find relevant images)
         
         Return the data in a strict JSON format with this structure:
         {{
@@ -532,7 +554,8 @@ def get_activities():
                     "duration": "Duration info",
                     "price": "Price info",
                     "location": "Area/neighborhood",
-                    "category": "Category Name"
+                    "category": "Category Name",
+                    "image_query": "Specific search query for images"
                 }}
             ]
         }}
@@ -540,7 +563,7 @@ def get_activities():
         
         response = ask_gemini(prompt)
         
-        # More robust response cleaning
+        # Clean and parse the response
         clean_response = response.strip()
         if clean_response.startswith('```json'):
             clean_response = clean_response[7:]
@@ -556,21 +579,12 @@ def get_activities():
             if 'activities' not in activities_data:
                 activities_data['activities'] = []
                 
-            # Validate each activity has required fields
-            valid_activities = []
+            # Add image URLs to each activity using Pexels
             for activity in activities_data.get('activities', []):
-                if all(key in activity for key in ['name', 'description', 'category']):
-                    valid_activities.append({
-                        'id': activity.get('id', random.randint(1000, 9999)),
-                        'name': activity['name'],
-                        'description': activity['description'],
-                        'duration': activity.get('duration', 'Not specified'),
-                        'price': activity.get('price', 'Not specified'),
-                        'location': activity.get('location', 'Not specified'),
-                        'category': activity['category']
-                    })
-                    
-            return jsonify({'activities': valid_activities})
+                image_query = activity.get('image_query', f"{activity['name']} {destination}")
+                activity['image_url'] = get_pexels_image_url(image_query)
+                
+            return jsonify(activities_data)
             
         except json.JSONDecodeError as e:
             print(f"Failed to parse Gemini response: {e}\nResponse was: {clean_response}")
@@ -585,7 +599,7 @@ def get_activities():
             'error': 'Server error while fetching activities',
             'activities': []
         }), 500
- 
+    
 @app.route('/api/itinerary', methods=['POST'])
 def itinerary2():
     try:

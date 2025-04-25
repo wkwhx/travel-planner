@@ -3272,4 +3272,122 @@ body.dark-mode .proximity-highlight {
     color: var(--dark-text) !important;
     background-color: rgba(160, 96, 77, 0.2) !important;
 }
+   /* Activity Images - Updated CSS */
+   .activity-item {
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    margin-bottom: 20px;
+    overflow: hidden;
+    transition: transform 0.3s ease;
+}
 
+
+.activity-item:hover {
+    transform: translateY(-4px);
+}
+
+.activity-image, .activity-icon {
+    width: 100%;
+    height: 180px;
+    background-color: #f5f5f5;
+    overflow: hidden;
+    border-radius: 16px 16px 0 0;
+}
+
+
+.activity-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.4s ease;
+}
+
+
+.activity-item:hover .activity-image img {
+    transform: scale(1.05);
+}
+
+.activity-text {
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+}
+
+
+.activity-name {
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: #2c2c2c;
+    margin-bottom: 8px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.activity-description {
+    font-size: 0.9rem;
+    color: #555;
+    line-height: 1.6;
+    margin-bottom: 12px;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* Meta info row: duration, cost, location */
+.activity-meta {
+    display: flex;
+    gap: 12px;
+    font-size: 0.8rem;
+    color: #777;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.activity-meta i {
+    margin-right: 4px;
+    color: #b57d56; /* accent color */
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .activity-image, .activity-icon {
+        width: 100px;
+        height: 100px;
+    }
+
+    .activity-text {
+        padding: 14px;
+    }
+}
+
+@media (max-width: 480px) {
+    .activity-item {
+        flex-direction: column;
+        border-radius: 14px;
+    }
+
+    .activity-image {
+        width: 100%;
+        height: 160px;
+        border-radius: 14px 14px 0 0;
+    }
+
+    .activity-name {
+        font-size: 1rem;
+    }
+
+    .activity-description {
+        font-size: 0.85rem;
+        -webkit-line-clamp: 2;
+    }
+
+    .activity-meta {
+        font-size: 0.75rem;
+    }
+}
