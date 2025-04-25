@@ -429,9 +429,45 @@ function downloadItineraryPDF() {
 
 // Move this function outside of any other scopes
 function displayActivities(activities) {
-    const container = document.getElementById('activities-list');
-    container.innerHTML = '';
+    const container = document.getElementById('activities-container');
     
+    // Store the current generate button if it exists
+    const oldGenerateBtn = document.getElementById('generate-itinerary-btn');
+    let oldGenerateBtnListener = null;
+    
+    if (oldGenerateBtn) {
+        // Clone the button and its event listeners
+        oldGenerateBtnListener = oldGenerateBtn.onclick;
+    }
+    
+    // Create the dropdown container
+    container.innerHTML = `
+        <div class="activities-dropdown">
+            <div class="activities-dropdown-header">
+                <h3>Select Activities for Your Itinerary</h3>
+                <button class="close-activities-btn" onclick="closeActivitiesDropdown()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="activities-list-container" id="activities-list"></div>
+            <div class="activities-dropdown-footer">
+                <button class="btn btn-primary" id="generate-itinerary-btn">Generate Itinerary</button>
+            </div>
+        </div>
+    `;
+    
+    // Reattach the event listener if it existed
+    const newGenerateBtn = document.getElementById('generate-itinerary-btn');
+    if (oldGenerateBtnListener && newGenerateBtn) {
+        newGenerateBtn.addEventListener('click', oldGenerateBtnListener);
+    } else {
+        // If no existing listener, attach the default one
+        newGenerateBtn?.addEventListener('click', fetchItinerary);
+    }
+    
+    const listContainer = document.getElementById('activities-list');
+    
+    // Rest of your existing displayActivities code...
     // Group activities by category
     const categories = {};
     activities.forEach(activity => {
@@ -495,9 +531,128 @@ function displayActivities(activities) {
         });
         
         categorySection.appendChild(list);
-        container.appendChild(categorySection);
+        listContainer.appendChild(categorySection);
     }
 }
+
+// Add this function to handle closing the activities dropdown
+function closeActivitiesDropdown() {
+    document.getElementById('activities-container').style.display = 'none';
+    document.getElementById('show-activities-btn').disabled = false;
+}
+
+// Then modify the event listener for the show activities button:
+document.getElementById('show-activities-btn')?.addEventListener('click', async function() {
+    const toLocation = document.querySelector('.form-container input[type="text"]:nth-of-type(2)').value;
+    
+    if (!toLocation) {
+        alert('Please enter a destination');
+        return;
+    }
+    
+    // Show loading screen
+    document.getElementById('activities-loading').style.display = 'block';
+    document.getElementById('show-activities-btn').disabled = true;
+    
+    try {
+        const activities = await loadActivities(toLocation);
+        displayActivities(activities);
+        
+        // Hide loading, show activities container
+        document.getElementById('activities-loading').style.display = 'none';
+        document.getElementById('activities-container').style.display = 'block';
+        
+    } catch (error) {
+        console.error('Error fetching activities:', error);
+        document.getElementById('activities-loading').style.display = 'none';
+        alert(`Failed to load activities: ${error.message}`);
+        document.getElementById('show-activities-btn').disabled = false;
+    }
+});
+
+// Add this to your existing style section or CSS file
+const styleElement = document.createElement('style');
+styleElement.textContent += `
+    /* Activities Dropdown Styles */
+    .activities-dropdown {
+        position: relative;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        max-height: 70vh;
+        overflow-y: auto;
+        animation: fadeIn 0.3s ease-out;
+    }
+    
+    .activities-dropdown-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px 20px;
+        background: #f8f9fa;
+        border-bottom: 1px solid #e0e0e0;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+    
+    .activities-dropdown-header h3 {
+        margin: 0;
+        font-size: 18px;
+        color: #333;
+    }
+    
+    .close-activities-btn {
+        background: none;
+        border: none;
+        font-size: 18px;
+        color: #666;
+        cursor: pointer;
+        padding: 5px;
+        transition: color 0.2s;
+    }
+    
+    .close-activities-btn:hover {
+        color: #333;
+    }
+    
+    .activities-list-container {
+        padding: 15px;
+    }
+    
+    .activities-dropdown-footer {
+        padding: 15px 20px;
+        background: #f8f9fa;
+        border-top: 1px solid #e0e0e0;
+        position: sticky;
+        bottom: 0;
+        text-align: right;
+    }
+    
+    /* Dark mode support */
+    body.dark-mode .activities-dropdown {
+        background: #2a2a2a;
+    }
+    
+    body.dark-mode .activities-dropdown-header,
+    body.dark-mode .activities-dropdown-footer {
+        background: #333;
+        border-color: #444;
+    }
+    
+    body.dark-mode .activities-dropdown-header h3 {
+        color: #e0e0e0;
+    }
+    
+    body.dark-mode .close-activities-btn {
+        color: #aaa;
+    }
+    
+    body.dark-mode .close-activities-btn:hover {
+        color: #fff;
+    }
+`;
+document.head.appendChild(styleElement);
 
 // Then keep your existing event listener for the button
 document.getElementById('show-activities-btn')?.addEventListener('click', async function() {
