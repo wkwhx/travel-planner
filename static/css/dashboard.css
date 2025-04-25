@@ -687,22 +687,6 @@ body {
 }
 
 /* Dark Mode */
-.dark-mode {
-    background-color: #121212;
-    color: #e0e0e0;
-}
-
-.dark-mode .content-section,
-.dark-mode .sidebar-section,
-.dark-mode .overview-card,
-.dark-mode .expense-table,
-.dark-mode .result,
-.dark-mode .itinerary-card,
-.dark-mode .trip-card {
-    background-color: #1e1e1e;
-    color: #e0e0e0;
-    border-color: #333;
-}
 
 .dark-mode input,
 .dark-mode select {
@@ -2885,10 +2869,6 @@ th {
     font-weight: 600;
 }
 
-.dark-mode th {
-    background-color: #333;
-}
-
 .dark-mode td, .dark-mode th {
     border-color: #444;
 }
@@ -3138,4 +3118,157 @@ th {
 body.dark-mode .proximity-highlight {
     background-color: #5d4037;
     color: #ffcc80;
+}
+
+/* ======================
+   DARK MODE STYLES
+   ====================== */
+   .dark-mode {
+    background-color: var(--dark-bg);
+    color: var(--dark-text);
+}
+
+/* Navigation & Header */
+.dark-mode .navbar {
+    background: linear-gradient(135deg, var(--primary-dark), #7a3a26);
+}
+
+/* Cards & Sections */
+.dark-mode .content-section,
+.dark-mode .sidebar-section,
+.dark-mode .overview-card,
+.dark-mode .expense-table,
+.dark-mode .result,
+.dark-mode .itinerary-card,
+.dark-mode .trip-card,
+.dark-mode .modal-content,
+.dark-mode .packing-list-card,
+.dark-mode .packing-item-input input {
+    background-color: var(--dark-card) !important;
+    color: var(--dark-text);
+    border-color: var(--dark-border);
+}
+
+/* Tables */
+.dark-mode th {
+    background-color: var(--dark-card);
+    color: var(--accent);
+}
+
+.dark-mode .expense-table tr:nth-child(even),
+.dark-mode .result,
+.dark-mode .itinerary-content tr:nth-child(even) {
+    background-color: #252525;
+}
+
+/* Text & Links */
+.dark-mode .section-header h2,
+.dark-mode .section-header i,
+.dark-mode .trip-card h3,
+.dark-mode .itinerary-header h3,
+.dark-mode .itinerary-section h4,
+.dark-mode .itinerary-day h5,
+.dark-mode .bucketlist-link {
+    color: var(--accent);
+}
+
+.dark-mode .trip-card p,
+.dark-mode .trip-meta,
+.dark-mode .packing-list-meta,
+.dark-mode .empty-packing-state,
+.dark-mode .empty-packing-state p {
+    color: #bbb;
+}
+
+/* Buttons & Inputs */
+.dark-mode .btn-outline {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.dark-mode .btn-outline:hover {
+    background-color: rgba(160, 96, 77, 0.2);
+}
+
+.dark-mode input,
+.dark-mode select,
+.dark-mode .packing-item-input input {
+    background-color: var(--dark-card);
+    color: var(--dark-text);
+    border-color: var(--dark-border);
+}
+
+/* Special Components */
+.dark-mode .weather-widget {
+    background: linear-gradient(135deg, #2c3e50, #4a6491);
+}
+
+.dark-mode .itinerary-tab {
+    background: rgba(160, 96, 77, 0.2);
+    color: var(--accent);
+}
+
+.dark-mode .itinerary-tab.active {
+    background: var(--primary);
+    color: white;
+}
+
+.dark-mode .chatbot-container {
+    background: var(--dark-card);
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+/* Loading States */
+.dark-mode .loading-container {
+    background: rgba(30, 30, 30, 0.8);
+}
+
+.dark-mode .empty-state i {
+    color: #c8c8c8;
+}
+
+/* Error States */
+.dark-mode .error-message {
+    background-color: rgba(217, 83, 79, 0.3);
+}
+
+/* Delete Buttons */
+.dark-mode .delete-btn {
+    color: white !important;
+    background: rgba(217, 83, 79, 0.3) !important;
+}
+
+/* Packing List Specific */
+.dark-mode .packing-item {
+    background: #4a5568 !important;
+    border-color: #718096 !important;
+}
+
+.dark-mode .packing-item-text,
+.dark-mode .modal-header h3,
+.dark-mode .packing-list-title {
+    color: #f7fafc !important;
+}
+
+.dark-mode .delete-packing-item {
+    color: #a0aec0 !important;
+}
+
+.dark-mode .delete-packing-item:hover {
+    color: #fc8181 !important;
+}
+
+/* Modal Close Button */
+.dark-mode .modal-header button {
+    color: #cbd5e0;
+}
+
+.dark-mode .modal-header button:hover {
+    background: #4a5568;
+    color: #f7fafc;
+}
+
+.dark-mode .section-header i {
+    color: var(--dark-text) !important;
+    background-color: rgba(160, 96, 77, 0.2) !important;
 }
